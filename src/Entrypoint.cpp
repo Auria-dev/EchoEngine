@@ -2,7 +2,7 @@
 
 int main()
 {
-    auto* app = new Echo::Application();
+    auto* app = new Application();
 
     app->Run();
     

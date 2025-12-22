@@ -57,5 +57,6 @@ add_custom_target(run
     COMMAND $<TARGET_FILE:${PROJECT_NAME}>
     DEPENDS ${PROJECT_NAME}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    USES_TERMINAL
     COMMENT "Building and running ${PROJECT_NAME}..."
 )
