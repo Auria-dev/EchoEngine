@@ -1,9 +1,17 @@
 #include "Application.h"
 
 #include <iostream>
+#include <iomanip>
+
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include "Renderer/Buffer.h"
+#include "Renderer/Shader.h"
 
 Application::Application()
 {
@@ -64,6 +72,33 @@ Application::~Application()
 
 void Application::Run()
 {
+    float vertices[] = {
+        -0.5f, -0.5f, 0.0f, 0.0f,
+         0.5f, -0.5f, 1.0f, 0.0f,
+         0.5f,  0.5f, 1.0f, 1.0f,
+        -0.5f,  0.5f, 0.0f, 1.0f
+    };
+
+    unsigned int indices[] = {
+        0, 1, 2,
+        2, 3, 0
+    };
+
+    VertexArray va;
+    VertexBuffer vb(vertices, sizeof(vertices));
+
+    VertexBufferLayout layout;
+    layout.Push<float>(2); // Position
+    layout.Push<float>(2); // TexCoords
+
+    va.AddBuffer(vb, layout);
+    IndexBuffer ib(indices, 6);
+
+    va.SetIndexBuffer(ib);
+    Shader shader("assets/shaders/Basic.vert", "assets/shaders/Basic.frag");
+    shader.Bind();
+    shader.SetUniform4f("u_Color", 0.8f, 0.3f, 0.8f, 1.0f);
+
     while (!glfwWindowShouldClose(m_Window))
     {
         float currentFrame = (float)glfwGetTime();
@@ -75,21 +110,48 @@ void Application::Run()
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
+
         ImGui::NewFrame();
-
-        ImGui::Begin("Engine Control");
-        ImGui::Text("Application Running!");
+        ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
+        ImGui::Begin("Performance");
+        float fps = 1.0/m_DeltaTime;
+		ImGui::Text("%.3f ms (%.1f FPS)", m_DeltaTime, fps);
+        static float fpsHistory[100] = { 0 };
+		static int fpsHistoryIndex = 0;
+		fpsHistory[fpsHistoryIndex] = fps;
+		fpsHistoryIndex = (fpsHistoryIndex + 1) % 100;
+		ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
         ImGui::End();
-
         ImGui::Render();
+
         int w, h;
         glfwGetFramebufferSize(m_Window, &w, &h);
         glViewport(0, 0, w, h);
+
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        shader.Bind();
+
+        float aspectRatio = (float)w / (float)h;
+        glm::mat4 projection = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f, -1.0f, 1.0f);
         
+        shader.SetUniformMat4f("u_MVP", projection); 
+
+        va.Bind();
+        glDrawElements(GL_TRIANGLES, ib.GetCount(), GL_UNSIGNED_INT, nullptr);
+
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         
+        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }
+
         InputManager::GetInstance().EndFrame();
         glfwSwapBuffers(m_Window);
     }
@@ -97,7 +159,6 @@ void Application::Run()
 
 void Application::Update()
 {
-    std::cout << "updated " << m_DeltaTime << " (" << 1.0/m_DeltaTime << " FPS)" << std::endl;
     if (InputManager::GetInstance().IsActionPressed("Quit")) glfwSetWindowShouldClose(m_Window, true);
 
     if (InputManager::GetInstance().IsActionPressed("ToggleCursor")) {

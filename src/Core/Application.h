@@ -28,7 +28,6 @@ public:
     static void OnMouseButton(GLFWwindow* window, int button, int action, int modifiers);
     static void OnKeyboard(GLFWwindow* window, int key, int scancode, int action, int modifiers);
 
-
 private:
     GLFWwindow* m_Window;
     float m_DeltaTime;
