@@ -42,6 +42,10 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
     "src/*.c"
 )
 
+if (UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)
+endif()
+
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC src)
 
@@ -52,6 +56,14 @@ target_link_libraries(${PROJECT_NAME}
     glm::glm 
     ImGui
 )
+
+if (UNIX AND NOT APPLE)
+    target_link_libraries(${PROJECT_NAME} PRIVATE 
+        X11::X11
+        ${CMAKE_DL_LIBS} 
+        pthread
+    )
+endif()
 
 add_custom_target(run
     COMMAND $<TARGET_FILE:${PROJECT_NAME}>
