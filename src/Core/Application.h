@@ -29,8 +29,10 @@ public:
     static void OnKeyboard(GLFWwindow* window, int key, int scancode, int action, int modifiers);
 
 private:
-    GLFWwindow* m_Window;
+    GLFWwindow* m_Window; // TODO: abstract this probably
+    int m_WPosX, m_WPosY, m_WWidth, m_WHeight;
+    bool m_WFullscreen;
+
     float m_DeltaTime;
     float m_LastFrameTime;
-
 };

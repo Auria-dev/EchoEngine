@@ -20,13 +20,19 @@ Application::Application()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    m_Window = glfwCreateWindow(1280, 720, "EchoEngine", nullptr, nullptr);
+    m_WPosX = 100;
+    m_WPosY = 100;
+    m_WWidth = 1280;
+    m_WHeight = 720;
+    m_WFullscreen = false;
+    m_Window = glfwCreateWindow(m_WWidth, m_WHeight, "EchoEngine", nullptr, nullptr);
     if (!m_Window)
     {
         glfwTerminate();
         return;
     }
+    glfwWindowHint(GLFW_POSITION_X, m_WPosX);
+    glfwWindowHint(GLFW_POSITION_Y, m_WPosY);
     
     glfwMakeContextCurrent(m_Window);
     glfwSwapInterval(1);
@@ -58,6 +64,7 @@ Application::Application()
 
     InputManager::GetInstance().BindAction("Quit", InputType::Key, GLFW_KEY_ESCAPE);
     InputManager::GetInstance().BindAction("ToggleCursor", InputType::Key, GLFW_KEY_ENTER);
+    InputManager::GetInstance().BindAction("Fullscreen", InputType::Key, GLFW_KEY_F11);
 }
 
 Application::~Application()
@@ -166,6 +173,27 @@ void Application::Update()
 		int newMode = (currentMode == GLFW_CURSOR_DISABLED) ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED;
 		glfwSetInputMode(m_Window, GLFW_CURSOR, newMode);
 	}
+
+    if (InputManager::GetInstance().IsActionPressed("Fullscreen")) {
+        m_WFullscreen = !m_WFullscreen;
+
+        if (!m_WFullscreen) {
+            glfwWindowHint(GLFW_POSITION_X, m_WPosX);
+            glfwWindowHint(GLFW_POSITION_Y, m_WPosY);
+
+            GLFWmonitor* monitor = glfwGetWindowMonitor(m_Window) ? glfwGetWindowMonitor(m_Window) : glfwGetPrimaryMonitor();
+            glfwWindowHint(GLFW_REFRESH_RATE, GLFW_DONT_CARE);
+            glfwSetWindowMonitor(m_Window, NULL, m_WPosX, m_WPosY, m_WWidth, m_WHeight, GLFW_DONT_CARE);
+        } else {
+            GLFWmonitor* monitor = glfwGetWindowMonitor(m_Window) ? glfwGetWindowMonitor(m_Window) : glfwGetPrimaryMonitor();
+            const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+            glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+            glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+            glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+            glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+            glfwSetWindowMonitor(m_Window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+        }   
+    }
 
     // glm::vec2 mouseDelta = InputManager::GetInstance().GetMouseDelta();
 	// glm::vec2 scroll = InputManager::GetInstance().GetScrollDelta();
