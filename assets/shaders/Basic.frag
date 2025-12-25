@@ -2,10 +2,10 @@
 
 layout(location = 0) out vec4 color;
 
-in vec2 v_TexCoord;
-uniform vec4 u_Color;
+in vec2 vTexCoord;
+uniform vec4 uColor;
 
 void main()
 {
-    color = u_Color;
+    color = uColor;
 }

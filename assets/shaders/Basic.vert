@@ -1,13 +1,18 @@
 #version 330 core
 
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec2 texCoord;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aTexCoords;
 
-out vec2 v_TexCoord;
-uniform mat4 u_MVP;
+out vec2 vTexCoord;
+
+uniform mat4 uView;
+uniform mat4 uProjection;
+uniform mat4 uModel;
 
 void main()
 {
-    gl_Position = u_MVP * vec4(position, 0.0, 1.0);
-    v_TexCoord = texCoord;
+    // vec4 worldPos = uModel * vec4(, 1.0);
+    vTexCoord = aTexCoords;
+    
+    gl_Position = uProjection * uView * uModel * vec4(aPos.xyz,1.0);
 }

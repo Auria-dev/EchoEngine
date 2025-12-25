@@ -6,6 +6,7 @@
 #include <glm/vec3.hpp>
 
 #include "InputManager.h"
+#include "Camera.h"
 
 class Application
 {
@@ -21,6 +22,7 @@ public:
     void MouseScrolled(float x, float y);
     void MouseButton(int button, int action, int mods);
     void Keyboard(int key, int scancode, int action, int mods);
+    void Resized(int width, int height);
 
     static void OnWindowResized(GLFWwindow* window, int width, int height);
     static void OnMouseMoved(GLFWwindow* window, double x, double y);
@@ -35,4 +37,6 @@ private:
 
     float m_DeltaTime;
     float m_LastFrameTime;
+
+    Camera m_ActiveCamera;
 };
