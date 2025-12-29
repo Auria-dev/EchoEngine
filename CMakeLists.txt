@@ -36,6 +36,14 @@ add_library(ImGui STATIC ${IMGUI_SOURCES})
 target_include_directories(ImGui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
 target_link_libraries(ImGui PRIVATE glfw Glad)
 
+set(STB_IMPL_FILE "${CMAKE_BINARY_DIR}/stb_image.cpp")
+if(NOT EXISTS ${STB_IMPL_FILE})
+    file(WRITE ${STB_IMPL_FILE} "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"")
+endif()
+
+add_library(STBImage STATIC ${STB_IMPL_FILE})
+target_include_directories(STBImage PUBLIC vendor/stb_image)
+
 file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS 
     "src/*.h" 
     "src/*.cpp" 
@@ -55,6 +63,7 @@ target_link_libraries(${PROJECT_NAME}
     Glad 
     glm::glm 
     ImGui
+    STBImage
 )
 
 if (UNIX AND NOT APPLE)

@@ -12,6 +12,7 @@
 
 #include "Renderer/Buffer.h"
 #include "Renderer/Shader.h"
+#include "Renderer/Texture.h"
 
 Application::Application()
 {
@@ -86,16 +87,20 @@ Application::~Application()
 void Application::Run()
 {
     float vertices[] = {
-        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 0.0f, 0.0f, 0.0f
     };
 
     unsigned int indices[] = {
         0, 1, 2,
         2, 3, 0
     };
+
+    int textureSlot = 0;
+    Texture debugTex("assets/textures/WallDebug.png");
+    debugTex.Bind();
 
     VertexArray va;
     VertexBuffer vb(vertices, sizeof(vertices));
@@ -110,8 +115,8 @@ void Application::Run()
     va.SetIndexBuffer(ib);
     Shader shader("assets/shaders/Basic.vert", "assets/shaders/Basic.frag");
     shader.Bind();
+    shader.SetUniform1i("uAlbedo", textureSlot);
     shader.SetUniform4f("uColor", 0.8f, 0.3f, 0.8f, 1.0f);
-
     m_ActiveCamera = Camera();
 
     m_ActiveCamera.SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_ActiveCamera.GetNear(), m_ActiveCamera.GetFar());
