@@ -12,7 +12,11 @@
 
 #include "Renderer/Buffer.h"
 #include "Renderer/Shader.h"
-#include "Renderer/Texture.h"
+#include "Renderer/RenderTexture.h"
+
+#include "Resources/Texture.h"
+#include "Resources/Material.h"
+
 
 Application::Application()
 {
@@ -98,9 +102,11 @@ void Application::Run()
         2, 3, 0
     };
 
-    int textureSlot = 0;
-    Texture debugTex("assets/textures/WallDebug.png");
-    debugTex.Bind();
+    Material debugMaterial;
+    Texture debugTexture("assets/textures/WallDebug.png");
+    debugMaterial.SetDiffuse(std::move(debugTexture));
+
+    RenderTexture diffuse(*debugMaterial.DiffuseTexture);
 
     VertexArray va;
     VertexBuffer vb(vertices, sizeof(vertices));
@@ -115,7 +121,7 @@ void Application::Run()
     va.SetIndexBuffer(ib);
     Shader shader("assets/shaders/Basic.vert", "assets/shaders/Basic.frag");
     shader.Bind();
-    shader.SetUniform1i("uAlbedo", textureSlot);
+    shader.SetUniform1i("uAlbedo", 0);
     shader.SetUniform4f("uColor", 0.8f, 0.3f, 0.8f, 1.0f);
     m_ActiveCamera = Camera();
 
@@ -165,6 +171,7 @@ void Application::Run()
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader.Bind();
+        diffuse.Bind();
         shader.SetUniformMat4f("uView", m_ActiveCamera.GetViewMatrix());
         shader.SetUniformMat4f("uProjection", m_ActiveCamera.GetProjectionMatrix());
         shader.SetUniformMat4f("uModel", model);

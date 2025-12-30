@@ -13,7 +13,7 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
-#include "..\Types.h"
+#include "../Types.h"
 
 using UniformVariant = std::variant<
     int,
