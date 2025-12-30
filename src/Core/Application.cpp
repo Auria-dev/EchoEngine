@@ -13,9 +13,12 @@
 #include "Renderer/Buffer.h"
 #include "Renderer/Shader.h"
 #include "Renderer/RenderTexture.h"
+#include "Renderer/MeshResource.h"
 
 #include "Resources/Texture.h"
 #include "Resources/Material.h"
+#include "Resources/Entity.h"
+#include "Resources/OBJLoader.h"
 
 
 Application::Application()
@@ -67,15 +70,16 @@ Application::Application()
     ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
-    InputManager::GetInstance().BindAction("Quit", InputType::Key, GLFW_KEY_ESCAPE);
+    InputManager::GetInstance().BindAction("Quit",         InputType::Key, GLFW_KEY_ESCAPE);
     InputManager::GetInstance().BindAction("ToggleCursor", InputType::Key, GLFW_KEY_ENTER);
-    InputManager::GetInstance().BindAction("Fullscreen", InputType::Key, GLFW_KEY_F11);
+    InputManager::GetInstance().BindAction("Fullscreen",   InputType::Key, GLFW_KEY_F11);
 	InputManager::GetInstance().BindAction("MoveForward",  InputType::Key, GLFW_KEY_W);
 	InputManager::GetInstance().BindAction("MoveBackward", InputType::Key, GLFW_KEY_S);
 	InputManager::GetInstance().BindAction("MoveLeft",	   InputType::Key, GLFW_KEY_A);
 	InputManager::GetInstance().BindAction("MoveRight",    InputType::Key, GLFW_KEY_D);
 	InputManager::GetInstance().BindAction("MoveUp",       InputType::Key, GLFW_KEY_SPACE);
 	InputManager::GetInstance().BindAction("MoveDown",     InputType::Key, GLFW_KEY_LEFT_SHIFT);
+	InputManager::GetInstance().BindAction("ReloadShaders",InputType::Key, GLFW_KEY_R);
 }
 
 Application::~Application()
@@ -90,46 +94,38 @@ Application::~Application()
 
 void Application::Run()
 {
-    float vertices[] = {
-        1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-        0.0f, 0.0f, 0.0f, 0.0f, 0.0f
-    };
-
-    unsigned int indices[] = {
-        0, 1, 2,
-        2, 3, 0
-    };
-
-    Material debugMaterial;
-    Texture debugTexture("assets/textures/WallDebug.png");
-    debugMaterial.SetDiffuse(std::move(debugTexture));
-
-    RenderTexture diffuse(*debugMaterial.DiffuseTexture);
-
-    VertexArray va;
-    VertexBuffer vb(vertices, sizeof(vertices));
-
-    VertexBufferLayout layout;
-    layout.Push<float>(3); // Position
-    layout.Push<float>(2); // TexCoords
-
-    va.AddBuffer(vb, layout);
-    IndexBuffer ib(indices, 6);
-
-    va.SetIndexBuffer(ib);
     Shader shader("assets/shaders/Basic.vert", "assets/shaders/Basic.frag");
     shader.Bind();
-    shader.SetUniform1i("uAlbedo", 0);
+    shader.SetUniform1i("uAlbedo", 0); 
+    shader.SetUniform1i("uNormal", 1); 
+    shader.SetUniform1i("uARM", 2);
     shader.SetUniform4f("uColor", 0.8f, 0.3f, 0.8f, 1.0f);
-    m_ActiveCamera = Camera();
+    
+    LoadResult res = OBJLoader::Load("assets/models/dirt_1k.obj");
+    Entity dirtEntity;
+    dirtEntity.meshAsset = res.mesh;
+    dirtEntity.materials = res.materials;
 
+    RenderEntity dirtRender;
+    dirtRender.MeshRes = std::make_unique<MeshResource>(*dirtEntity.meshAsset);
+    for (const auto& cpuMat : dirtEntity.materials)
+    {
+        RenderEntity::GPUMaterial gpuMat;
+        if (cpuMat->DiffuseTexture) gpuMat.Diffuse = std::make_unique<RenderTexture>(*cpuMat->DiffuseTexture);
+        if (cpuMat->NormalTexture)  gpuMat.Normal  = std::make_unique<RenderTexture>(*cpuMat->NormalTexture);
+        if (cpuMat->ARMTexture)     gpuMat.ARM     = std::make_unique<RenderTexture>(*cpuMat->ARMTexture);
+
+        dirtRender.Materials.push_back(std::move(gpuMat));
+    }
+
+    m_ActiveCamera = Camera();
     m_ActiveCamera.SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_ActiveCamera.GetNear(), m_ActiveCamera.GetFar());
 
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f));
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 	glm::mat4 view = m_ActiveCamera.GetViewMatrix();
 	glm::mat4 projection = m_ActiveCamera.GetProjectionMatrix();
+    
+    glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(m_Window))
     {
@@ -168,17 +164,38 @@ void Application::Run()
         glViewport(0, 0, w, h);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        
+        if (InputManager::GetInstance().IsActionPressed("ReloadShaders")) 
+        {
+            shader.Reload("assets/shaders/Basic.vert", "assets/shaders/Basic.frag");
+        }
 
         shader.Bind();
-        diffuse.Bind();
         shader.SetUniformMat4f("uView", m_ActiveCamera.GetViewMatrix());
         shader.SetUniformMat4f("uProjection", m_ActiveCamera.GetProjectionMatrix());
         shader.SetUniformMat4f("uModel", model);
 
-        va.Bind();
-        glDrawElements(GL_TRIANGLES, ib.GetCount(), GL_UNSIGNED_INT, nullptr);
+        dirtRender.MeshRes->Bind();
+        const auto& subMeshes = dirtEntity.meshAsset->SubMeshes;
+        for (int i = 0; i < subMeshes.size(); ++i)
+        {
+            const SubMesh& subMesh = subMeshes[i];
+            
+            int materialIndex = subMesh.MaterialIndex;
+            if (materialIndex < dirtRender.Materials.size())
+            {
+                const auto& mat = dirtRender.Materials[materialIndex];
 
+                if (mat.Diffuse) mat.Diffuse->Bind(0);
+                if (mat.Normal)  mat.Normal->Bind(1);
+                if (mat.ARM)     mat.ARM->Bind(2);
+            }
+
+            dirtRender.MeshRes->DrawSubMesh(i);
+        }
+        
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
