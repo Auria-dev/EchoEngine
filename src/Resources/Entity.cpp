@@ -47,3 +47,9 @@ void Entity::Scale(const glm::vec3& factor)
     scale *= factor;
     UpdateTransform();
 }
+
+void Entity::LoadFromOBJ(const std::string& path) {
+    LoadResult res = OBJLoader::Load(path);
+    meshAsset = res.mesh;
+    materials = res.materials;
+}

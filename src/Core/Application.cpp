@@ -99,32 +99,13 @@ void Application::Run()
     shader.SetUniform1i("uAlbedo", 0); 
     shader.SetUniform1i("uNormal", 1); 
     shader.SetUniform1i("uARM", 2);
-    shader.SetUniform4f("uColor", 0.8f, 0.3f, 0.8f, 1.0f);
-    
-    LoadResult res = OBJLoader::Load("assets/models/dirt_1k.obj");
-    Entity dirtEntity;
-    dirtEntity.meshAsset = res.mesh;
-    dirtEntity.materials = res.materials;
 
-    RenderEntity dirtRender;
-    dirtRender.MeshRes = std::make_unique<MeshResource>(*dirtEntity.meshAsset);
-    for (const auto& cpuMat : dirtEntity.materials)
-    {
-        RenderEntity::GPUMaterial gpuMat;
-        if (cpuMat->DiffuseTexture) gpuMat.Diffuse = std::make_unique<RenderTexture>(*cpuMat->DiffuseTexture);
-        if (cpuMat->NormalTexture)  gpuMat.Normal  = std::make_unique<RenderTexture>(*cpuMat->NormalTexture);
-        if (cpuMat->ARMTexture)     gpuMat.ARM     = std::make_unique<RenderTexture>(*cpuMat->ARMTexture);
-
-        dirtRender.Materials.push_back(std::move(gpuMat));
-    }
+    Entity dirtPlane;
+    dirtPlane.LoadFromOBJ("assets/models/landscape.obj");
 
     m_ActiveCamera = Camera();
     m_ActiveCamera.SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_ActiveCamera.GetNear(), m_ActiveCamera.GetFar());
 
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-	glm::mat4 view = m_ActiveCamera.GetViewMatrix();
-	glm::mat4 projection = m_ActiveCamera.GetProjectionMatrix();
-    
     glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(m_Window))
@@ -175,27 +156,8 @@ void Application::Run()
         shader.Bind();
         shader.SetUniformMat4f("uView", m_ActiveCamera.GetViewMatrix());
         shader.SetUniformMat4f("uProjection", m_ActiveCamera.GetProjectionMatrix());
-        shader.SetUniformMat4f("uModel", model);
+        m_Renderer.DrawEntity(dirtPlane, shader);
 
-        dirtRender.MeshRes->Bind();
-        const auto& subMeshes = dirtEntity.meshAsset->SubMeshes;
-        for (int i = 0; i < subMeshes.size(); ++i)
-        {
-            const SubMesh& subMesh = subMeshes[i];
-            
-            int materialIndex = subMesh.MaterialIndex;
-            if (materialIndex < dirtRender.Materials.size())
-            {
-                const auto& mat = dirtRender.Materials[materialIndex];
-
-                if (mat.Diffuse) mat.Diffuse->Bind(0);
-                if (mat.Normal)  mat.Normal->Bind(1);
-                if (mat.ARM)     mat.ARM->Bind(2);
-            }
-
-            dirtRender.MeshRes->DrawSubMesh(i);
-        }
-        
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
