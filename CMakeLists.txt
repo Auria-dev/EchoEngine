@@ -1,8 +1,28 @@
-cmake_minimum_required(VERSION 3.12..4.0)
+cmake_minimum_required(VERSION 3.16..4.0)
+
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+endif()
+
 project("EchoEngine" VERSION 0.0.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if (UNIX AND NOT APPLE)
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "-fuse-ld=mold" LINKER_SUPPORTS_MOLD)
+    if (LINKER_SUPPORTS_MOLD)
+        add_link_options("-fuse-ld=mold")
+    else()
+        check_linker_flag(CXX "-fuse-ld=lld" LINKER_SUPPORTS_LLD)
+        if (LINKER_SUPPORTS_LLD)
+            add_link_options("-fuse-ld=lld")
+        endif()
+    endif()
+endif()
 
 # GLFW
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -36,6 +56,7 @@ add_library(ImGui STATIC ${IMGUI_SOURCES})
 target_include_directories(ImGui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
 target_link_libraries(ImGui PRIVATE glfw Glad)
 
+# STB Image
 set(STB_IMPL_FILE "${CMAKE_BINARY_DIR}/stb_image.cpp")
 if(NOT EXISTS ${STB_IMPL_FILE})
     file(WRITE ${STB_IMPL_FILE} "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"")
@@ -56,6 +77,15 @@ endif()
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC src)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ON)
+target_precompile_headers(${PROJECT_NAME} PRIVATE
+    <vector>
+    <string>
+    <iostream>
+    <glm/glm.hpp>
+    <glm/gtc/matrix_transform.hpp>
+)
 
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE 

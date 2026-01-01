@@ -41,6 +41,7 @@ public:
     std::string Name;
     std::string Filepath;
 
+    void RecalculateNormals();
     void RecalculateTangents();
 
 };

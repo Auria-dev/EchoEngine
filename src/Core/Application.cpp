@@ -94,20 +94,16 @@ Application::~Application()
 
 void Application::Run()
 {
-    Shader shader("assets/shaders/Basic.vert", "assets/shaders/Basic.frag");
-    shader.Bind();
-    shader.SetUniform1i("uAlbedo", 0); 
-    shader.SetUniform1i("uNormal", 1); 
-    shader.SetUniform1i("uARM", 2);
-
     Entity dirtPlane;
     dirtPlane.LoadFromOBJ("assets/models/landscape.obj");
+    
+    Camera t = Camera();
 
-    m_ActiveCamera = Camera();
-    m_ActiveCamera.SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_ActiveCamera.GetNear(), m_ActiveCamera.GetFar());
+    m_Scene.activeCamera = &t;
+    m_Scene.activeCamera->SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());
 
-    glEnable(GL_DEPTH_TEST);
-
+    m_Scene.Entities.push_back(&dirtPlane);
+    m_Renderer.Init(m_WWidth, m_WHeight);
     while (!glfwWindowShouldClose(m_Window))
     {
         float currentFrame = (float)glfwGetTime();
@@ -117,46 +113,96 @@ void Application::Run()
         glfwPollEvents();
         Update();
 
-        {
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            
-            ImGui::NewFrame();
-            ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
-            ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
-            ImGui::Begin("Performance");
-            float fps = 1.0/m_DeltaTime;
-            ImGui::Text("%.3f ms (%.1f FPS)", m_DeltaTime, fps);
-            static float fpsHistory[100] = { 0 };
-            static int fpsHistoryIndex = 0;
-            fpsHistory[fpsHistoryIndex] = fps;
-            fpsHistoryIndex = (fpsHistoryIndex + 1) % 100;
-            ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
-            glm::vec3 camPos = m_ActiveCamera.GetPosition();
-            ImGui::Text("Position: (%.2f, %.2f, %.2f)", camPos.x, camPos.y, camPos.z);
-            ImGui::Text("Pitch: %.2f, Yaw: %.2f", m_ActiveCamera.GetPitch(), m_ActiveCamera.GetYaw());
-
-            ImGui::End();
-            ImGui::Render();
-        }
-
-        int w, h;
-        glfwGetFramebufferSize(m_Window, &w, &h);
-        glViewport(0, 0, w, h);
-
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
         
-        if (InputManager::GetInstance().IsActionPressed("ReloadShaders")) 
+        ImGui::NewFrame();
+        ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
+        ImGui::Begin("Performance");
+        float fps = 1.0/m_DeltaTime;
+        ImGui::Text("%.3f ms (%.1f FPS)", m_DeltaTime, fps);
+        static float fpsHistory[100] = { 0 };
+        static int fpsHistoryIndex = 0;
+        fpsHistory[fpsHistoryIndex] = fps;
+        fpsHistoryIndex = (fpsHistoryIndex + 1) % 100;
+        ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
+        glm::vec3 camPos = m_Scene.activeCamera->GetPosition();
+        ImGui::Text("Position: (%.2f, %.2f, %.2f)", camPos.x, camPos.y, camPos.z);
+        ImGui::Text("Pitch: %.2f, Yaw: %.2f", m_Scene.activeCamera->GetPitch(), m_Scene.activeCamera->GetYaw());
+
+        ImGui::End();
+
+        ImGui::Begin("Scene Inspector");
+
+        for (size_t i = 0; i < m_Scene.Entities.size(); ++i)
         {
-            shader.Reload("assets/shaders/Basic.vert", "assets/shaders/Basic.frag");
+            Entity& entity = *m_Scene.Entities[i]; 
+            
+            std::string entityName = "Entity " + std::to_string(i);
+            ImGui::PushID(static_cast<int>(i));
+
+            if (ImGui::CollapsingHeader(entityName.c_str()))
+            {
+                if (ImGui::DragFloat3("Position", &entity.position.x, 0.1f)) entity.SetPosition(entity.position); 
+                if (ImGui::DragFloat3("Rotation", &entity.rotation.x, 1.0f)) entity.SetRotation(entity.rotation);
+                if (ImGui::DragFloat3("Scale", &entity.scale.x, 0.1f))       entity.SetScale(entity.scale);
+                
+                ImGui::Separator();
+
+                if (ImGui::TreeNode("Materials"))
+                {
+                    for (size_t m = 0; m < entity.materials.size(); ++m)
+                    {
+                        auto& mat = entity.materials[m];
+                        std::string matLabel = "Material " + std::to_string(m);
+
+                        if (ImGui::TreeNode(matLabel.c_str()))
+                        {
+                            auto ShowTextureSlot = [&](const char* name, Texture* cpuTex) {
+                                ImGui::Text("%s", name);
+                                if (cpuTex)
+                                {
+                                    RenderTexture* gpuTex = m_Renderer.GetGPUTexture(cpuTex);
+                                    
+                                    if (gpuTex)
+                                    {
+                                        ImGui::Image((void*)(intptr_t)gpuTex->GetID(), ImVec2(64, 64));
+                                        
+                                        if (ImGui::IsItemHovered())
+                                        {
+                                            ImGui::BeginTooltip();
+                                            ImGui::Image((void*)(intptr_t)gpuTex->GetID(), ImVec2(256, 256));
+                                            ImGui::EndTooltip();
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    ImGui::TextDisabled("(Empty)");
+                                }
+                            };
+
+                            ShowTextureSlot("Diffuse", mat->DiffuseTexture.get());
+                            ShowTextureSlot("Normal",  mat->NormalTexture.get());
+                            ShowTextureSlot("ARM",     mat->ARMTexture.get());
+                            
+                            ImGui::TreePop();
+                        }
+                    }
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::PopID();
         }
 
-        shader.Bind();
-        shader.SetUniformMat4f("uView", m_ActiveCamera.GetViewMatrix());
-        shader.SetUniformMat4f("uProjection", m_ActiveCamera.GetProjectionMatrix());
-        m_Renderer.DrawEntity(dirtPlane, shader);
+        ImGui::End();
+
+        ImGui::Render();
+        
+        m_Renderer.BeginFrame();
+		m_Renderer.DrawScene(m_Scene);
+		m_Renderer.EndFrame();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         
@@ -214,23 +260,24 @@ void Application::Update()
         }
     }
     
-    if (InputManager::GetInstance().IsActionDown("MoveForward"))  m_ActiveCamera.ProcessKeyboard(CameraMovement::FORWARD,  m_DeltaTime);
-	if (InputManager::GetInstance().IsActionDown("MoveBackward")) m_ActiveCamera.ProcessKeyboard(CameraMovement::BACKWARD, m_DeltaTime);
-	if (InputManager::GetInstance().IsActionDown("MoveLeft"))     m_ActiveCamera.ProcessKeyboard(CameraMovement::LEFT,     m_DeltaTime);
-	if (InputManager::GetInstance().IsActionDown("MoveRight"))    m_ActiveCamera.ProcessKeyboard(CameraMovement::RIGHT,    m_DeltaTime);
-	if (InputManager::GetInstance().IsActionDown("MoveUp"))       m_ActiveCamera.ProcessKeyboard(CameraMovement::UP,       m_DeltaTime);
-	if (InputManager::GetInstance().IsActionDown("MoveDown"))     m_ActiveCamera.ProcessKeyboard(CameraMovement::DOWN,     m_DeltaTime);
+    if (InputManager::GetInstance().IsActionDown("MoveForward"))  m_Scene.activeCamera->ProcessKeyboard(CameraMovement::FORWARD,  m_DeltaTime);
+	if (InputManager::GetInstance().IsActionDown("MoveBackward")) m_Scene.activeCamera->ProcessKeyboard(CameraMovement::BACKWARD, m_DeltaTime);
+	if (InputManager::GetInstance().IsActionDown("MoveLeft"))     m_Scene.activeCamera->ProcessKeyboard(CameraMovement::LEFT,     m_DeltaTime);
+	if (InputManager::GetInstance().IsActionDown("MoveRight"))    m_Scene.activeCamera->ProcessKeyboard(CameraMovement::RIGHT,    m_DeltaTime);
+	if (InputManager::GetInstance().IsActionDown("MoveUp"))       m_Scene.activeCamera->ProcessKeyboard(CameraMovement::UP,       m_DeltaTime);
+	if (InputManager::GetInstance().IsActionDown("MoveDown"))     m_Scene.activeCamera->ProcessKeyboard(CameraMovement::DOWN,     m_DeltaTime);
 
 	glm::vec2 mouseDelta = InputManager::GetInstance().GetMouseDelta();
 	if (glfwGetInputMode(m_Window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
     {
 		if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
         {
-            m_ActiveCamera.ProcessMouseMovement(mouseDelta.x, -mouseDelta.y);
+            m_Scene.activeCamera->ProcessMouseMovement(mouseDelta.x, -mouseDelta.y);
 		}
 	}
     
     // glm::vec2 scroll = InputManager::GetInstance().GetScrollDelta();
+    if (InputManager::GetInstance().IsActionPressed("ReloadShaders")) m_Renderer.ReloadShaders();
 }
 
 void Application::OnWindowResized(GLFWwindow* window, int windowWidth, int windowHeight)
@@ -287,5 +334,6 @@ void Application::Keyboard(int key, int scancode, int action, int modifiers)
 void Application::Resized(int width, int height) {
     m_WWidth = width;
     m_WHeight = height;
-    m_ActiveCamera.SetProjectionMatrix((float)width/(float)height, m_ActiveCamera.GetNear(), m_ActiveCamera.GetFar());
+    m_Scene.activeCamera->SetProjectionMatrix((float)width/(float)height, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());
+    m_Renderer.Resize(width, height);
 }

@@ -3,6 +3,35 @@
 Mesh::Mesh() {}
 Mesh::~Mesh() {}
 
+void Mesh::RecalculateNormals()
+{
+    for (auto& v : Vertices)
+    {
+        v.Normal = glm::vec3(0.0f);
+    }
+
+    for (size_t i = 0; i < Indices.size(); i += 3)
+    {
+        Vertex& v0 = Vertices[Indices[i]];
+        Vertex& v1 = Vertices[Indices[i + 1]];
+        Vertex& v2 = Vertices[Indices[i + 2]];
+
+        glm::vec3 edge1 = v1.Position - v0.Position;
+        glm::vec3 edge2 = v2.Position - v0.Position;
+        
+        glm::vec3 normal = glm::cross(edge1, edge2);
+
+        v0.Normal += normal;
+        v1.Normal += normal;
+        v2.Normal += normal;
+    }
+
+    for (auto& v : Vertices)
+    {
+        v.Normal = glm::normalize(v.Normal);
+    }
+}
+
 void Mesh::RecalculateTangents()
 {
     for (auto& v : Vertices)
@@ -42,6 +71,10 @@ void Mesh::RecalculateTangents()
         v0.Tangent += tangent;
         v1.Tangent += tangent;
         v2.Tangent += tangent;
+
+        v0.Bitangent += bitangent;
+        v1.Bitangent += bitangent;
+        v2.Bitangent += bitangent;
     }
 
     for (auto& v : Vertices)
@@ -53,8 +86,12 @@ void Mesh::RecalculateTangents()
             continue;
         }
 
-        // T_new = Normalize(T - N * (N dot T))
-        v.Tangent = glm::normalize(v.Tangent - v.Normal * glm::dot(v.Normal, v.Tangent));
-        v.Bitangent = glm::cross(v.Normal, v.Tangent);
+        glm::vec3 T = glm::normalize(v.Tangent - v.Normal * glm::dot(v.Normal, v.Tangent));
+        glm::vec3 B = glm::cross(v.Normal, T);
+
+        float handedness = (glm::dot(B, v.Bitangent) < 0.0f) ? -1.0f : 1.0f;
+
+        v.Tangent = T;
+        v.Bitangent = B * handedness;
     }
 }

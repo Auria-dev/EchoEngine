@@ -259,7 +259,8 @@ LoadResult OBJLoader::Load(const std::string& filepath)
         result.mesh->Indices.push_back(uniqueVertices[key]);
         currentSubMesh.IndexCount++;
     }
-    
+        
+    result.mesh->RecalculateNormals(); 
     result.mesh->RecalculateTangents();
 
     std::cout << "==================================================" << std::endl;

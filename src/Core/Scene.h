@@ -1,3 +1,16 @@
 #pragma once
 
-// each scene has a viewport, a vector of camera and a vector of meshs
+#include "Types.h"
+#include "Camera.h"
+#include "Resources/Entity.h"
+
+class SceneData
+{
+
+public:
+    Camera* activeCamera;
+    
+	// std::vector<Camera*> Camera;
+	std::vector<Entity*> Entities;
+
+};

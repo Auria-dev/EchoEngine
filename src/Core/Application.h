@@ -7,6 +7,7 @@
 
 #include "InputManager.h"
 #include "Camera.h"
+#include "Scene.h"
 #include "Renderer/Renderer.h"
 
 class Application
@@ -39,6 +40,6 @@ private:
     float m_DeltaTime;
     float m_LastFrameTime;
 
-    Camera m_ActiveCamera;
+    SceneData m_Scene;
     Renderer m_Renderer;
 };
