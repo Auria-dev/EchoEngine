@@ -43,7 +43,7 @@ Application::Application()
     glfwWindowHint(GLFW_POSITION_Y, m_WPosY);
     
     glfwMakeContextCurrent(m_Window);
-    glfwSwapInterval(1);
+    // glfwSwapInterval(1);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -94,15 +94,39 @@ Application::~Application()
 
 void Application::Run()
 {
-    Entity dirtPlane;
-    dirtPlane.LoadFromOBJ("assets/models/landscape.obj");
+    Entity room;
+    room.LoadFromOBJ("assets/models/room.obj");
+    room.Translate(glm::vec3(0.0f, 3.3f, 0.0f));
+    
+    Entity ground;
+    ground.LoadFromOBJ("assets/models/landscape.obj");
+    ground.Scale(glm::vec3(1.0,0.5,1.0));
     
     Camera t = Camera();
+    
+    PointLight* pointlight = new PointLight();
+    pointlight->Position = glm::vec3(0.0f, 2.0f, 0.0f);
+    pointlight->Color = glm::vec3(0.0f, 0.0f, 1.0f);
+    m_Scene.Lights.push_back(pointlight);
+    
+    DirectionalLight* dirLight = new DirectionalLight();
+    dirLight->Direction = glm::vec3(0.0f, -0.252f, 0.968f);
+    dirLight->Color = glm::vec3(1.0f, 0.0f, 0.0f);
+    m_Scene.Lights.push_back(dirLight);
+
+    SpotLight* spotLight = new SpotLight();
+    spotLight->Direction = glm::vec3(0.8f, -0.4f, -0.3f);
+    spotLight->Position = glm::vec3(0.0f, 5.3f, 0.0f);
+    spotLight->Color = glm::vec3(0.0f, 1.0f, 0.0f);
+    spotLight->InnerCutoff = 12.5f;
+    spotLight->OuterCutoff = 17.5f;
+    m_Scene.Lights.push_back(spotLight);
 
     m_Scene.activeCamera = &t;
     m_Scene.activeCamera->SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());
 
-    m_Scene.Entities.push_back(&dirtPlane);
+    m_Scene.Entities.push_back(&room);
+    m_Scene.Entities.push_back(&ground);
     m_Renderer.Init(m_WWidth, m_WHeight);
     while (!glfwWindowShouldClose(m_Window))
     {
@@ -135,65 +159,116 @@ void Application::Run()
 
         ImGui::Begin("Scene Inspector");
 
-        for (size_t i = 0; i < m_Scene.Entities.size(); ++i)
+        if (ImGui::BeginTabBar("SceneTabs"))
         {
-            Entity& entity = *m_Scene.Entities[i]; 
-            
-            std::string entityName = "Entity " + std::to_string(i);
-            ImGui::PushID(static_cast<int>(i));
-
-            if (ImGui::CollapsingHeader(entityName.c_str()))
+            if (ImGui::BeginTabItem("Entities"))
             {
-                if (ImGui::DragFloat3("Position", &entity.position.x, 0.1f)) entity.SetPosition(entity.position); 
-                if (ImGui::DragFloat3("Rotation", &entity.rotation.x, 1.0f)) entity.SetRotation(entity.rotation);
-                if (ImGui::DragFloat3("Scale", &entity.scale.x, 0.1f))       entity.SetScale(entity.scale);
-                
-                ImGui::Separator();
-
-                if (ImGui::TreeNode("Materials"))
+                for (size_t i = 0; i < m_Scene.Entities.size(); ++i)
                 {
-                    for (size_t m = 0; m < entity.materials.size(); ++m)
+                    Entity& entity = *m_Scene.Entities[i]; 
+                    std::string entityName = "Entity " + std::to_string(i);
+                    ImGui::PushID(static_cast<int>(i));
+
+                    if (ImGui::CollapsingHeader(entityName.c_str()))
                     {
-                        auto& mat = entity.materials[m];
-                        std::string matLabel = "Material " + std::to_string(m);
+                        if (ImGui::DragFloat3("Position", &entity.position.x, 0.1f)) entity.SetPosition(entity.position); 
+                        if (ImGui::DragFloat3("Rotation", &entity.rotation.x, 1.0f)) entity.SetRotation(entity.rotation);
+                        if (ImGui::DragFloat3("Scale", &entity.scale.x, 0.1f))       entity.SetScale(entity.scale);
+                        
+                        ImGui::Separator();
 
-                        if (ImGui::TreeNode(matLabel.c_str()))
+                        if (ImGui::TreeNode("Materials"))
                         {
-                            auto ShowTextureSlot = [&](const char* name, Texture* cpuTex) {
-                                ImGui::Text("%s", name);
-                                if (cpuTex)
-                                {
-                                    RenderTexture* gpuTex = m_Renderer.GetGPUTexture(cpuTex);
-                                    
-                                    if (gpuTex)
-                                    {
-                                        ImGui::Image((void*)(intptr_t)gpuTex->GetID(), ImVec2(64, 64));
-                                        
-                                        if (ImGui::IsItemHovered())
-                                        {
-                                            ImGui::BeginTooltip();
-                                            ImGui::Image((void*)(intptr_t)gpuTex->GetID(), ImVec2(256, 256));
-                                            ImGui::EndTooltip();
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    ImGui::TextDisabled("(Empty)");
-                                }
-                            };
+                            for (size_t m = 0; m < entity.materials.size(); ++m)
+                            {
+                                auto& mat = entity.materials[m];
+                                std::string matLabel = "Material " + std::to_string(m);
 
-                            ShowTextureSlot("Diffuse", mat->DiffuseTexture.get());
-                            ShowTextureSlot("Normal",  mat->NormalTexture.get());
-                            ShowTextureSlot("ARM",     mat->ARMTexture.get());
-                            
+                                if (ImGui::TreeNode(matLabel.c_str()))
+                                {
+                                    auto ShowTextureSlot = [&](const char* name, Texture* cpuTex) {
+                                        ImGui::Text("%s", name);
+                                        if (cpuTex) {
+                                            RenderTexture* gpuTex = m_Renderer.GetGPUTexture(cpuTex);
+                                            if (gpuTex) {
+                                                ImGui::Image((void*)(intptr_t)gpuTex->GetID(), ImVec2(64, 64));
+                                                if (ImGui::IsItemHovered()) {
+                                                    ImGui::BeginTooltip();
+                                                    ImGui::Image((void*)(intptr_t)gpuTex->GetID(), ImVec2(256, 256));
+                                                    ImGui::EndTooltip();
+                                                }
+                                            }
+                                        } else {
+                                            ImGui::TextDisabled("(Empty)");
+                                        }
+                                    };
+
+                                    ShowTextureSlot("Diffuse", mat->DiffuseTexture.get());
+                                    ShowTextureSlot("Normal",  mat->NormalTexture.get());
+                                    ShowTextureSlot("ARM",     mat->ARMTexture.get());
+                                    
+                                    ImGui::TreePop();
+                                }
+                            }
                             ImGui::TreePop();
                         }
                     }
-                    ImGui::TreePop();
+                    ImGui::PopID();
                 }
+                ImGui::EndTabItem();
             }
-            ImGui::PopID();
+
+            if (ImGui::BeginTabItem("Lights"))
+            {
+                for (size_t i = 0; i < m_Scene.Lights.size(); ++i)
+                {
+                    Light* light = m_Scene.Lights[i];
+                    ImGui::PushID(static_cast<int>(i));
+
+                    DirectionalLight* dLight = dynamic_cast<DirectionalLight*>(light);
+                    PointLight* pLight = dynamic_cast<PointLight*>(light);
+                    SpotLight* sLight = dynamic_cast<SpotLight*>(light);
+
+                    std::string headerName;
+                    if (dLight) headerName = "Directional Light " + std::to_string(i);
+                    else if (pLight) headerName = "Point Light " + std::to_string(i);
+                    else if (sLight) headerName = "Spot Light " + std::to_string(i);
+                    else headerName = "Unknown Light " + std::to_string(i);
+
+                    if (ImGui::CollapsingHeader(headerName.c_str()))
+                    {
+                        if (dLight)
+                        {
+                            ImGui::ColorEdit3("Color", &dLight->Color.x);
+                            ImGui::DragFloat("Intensity", &dLight->Intensity, 0.1f, 0.0f, 100.0f);
+                            if (ImGui::DragFloat3("Direction", &dLight->Direction.x, 0.05f)) dLight->Direction = glm::normalize(dLight->Direction);
+                        }
+                        else if (pLight)
+                        {
+                            ImGui::ColorEdit3("Color", &pLight->Color.x);
+                            ImGui::DragFloat("Intensity", &pLight->Intensity, 0.1f, 0.0f, 100.0f);
+                            ImGui::DragFloat3("Position", &pLight->Position.x, 0.1f);
+                            
+                            ImGui::Text("Attenuation");
+                            ImGui::DragFloat("Linear", &pLight->Linear, 0.01f, 0.0f, 1.0f);
+                            ImGui::DragFloat("Quadratic", &pLight->Quadratic, 0.001f, 0.0f, 1.0f);
+                        }
+                        else if (sLight)
+                        {
+                            ImGui::ColorEdit3("Color", &sLight->Color.x);
+                            ImGui::DragFloat("Intensity", &sLight->Intensity, 0.1f, 0.0f, 100.0f);
+                            ImGui::DragFloat3("Position", &sLight->Position.x, 0.1f);
+                            if (ImGui::DragFloat3("Direction", &sLight->Direction.x, 0.05f)) sLight->Direction = glm::normalize(sLight->Direction);
+
+                            ImGui::DragFloat("Inner Cutoff", &sLight->InnerCutoff, 0.1f, 0.0f, 180.0f);
+                            ImGui::DragFloat("Outer Cutoff", &sLight->OuterCutoff, 0.1f, 0.0f, 180.0f);
+                        }
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
         }
 
         ImGui::End();

@@ -8,14 +8,44 @@ uniform sampler2D gNormal;
 uniform sampler2D gAlbedo;
 uniform sampler2D gARM;
 
-struct Light { // multiply by view matrix before hand
+#define MAX_DIR_LIGHTS 4
+#define MAX_POINT_LIGHTS 16
+#define MAX_SPOT_LIGHTS 8
+
+struct DirectionalLight {
+    vec3 direction;
+    vec3 color;
+    float intensity;
+};
+
+struct PointLight {
     vec3 position;
-    vec3 ambient;
-    vec3 diffuse;
+    vec3 color;
+    float intensity;
+    
     float constant;
     float linear;
     float quadratic;
 };
+
+struct SpotLight {
+    vec3 position;
+    vec3 direction;
+    vec3 color;
+    float intensity;
+    
+    float constant;
+    float innerCutoff;
+    float outerCutoff;
+};
+
+uniform DirectionalLight uDirLights[MAX_DIR_LIGHTS];
+uniform PointLight uPointLights[MAX_POINT_LIGHTS];
+uniform SpotLight uSpotLights[MAX_SPOT_LIGHTS];
+
+uniform int uDirLightCount;
+uniform int uPointLightCount;
+uniform int uSpotLightCount;
 
 const float PI = 3.14159265359;
 
@@ -46,21 +76,35 @@ vec3 F_Schlick(float cosTheta, vec3 F0) {
     return F0 + (vec3(1.0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+vec3 CalculatePBRLighting(vec3 L, vec3 V, vec3 N, vec3 radiance, vec3 albedo, float roughness, float metallic, vec3 F0) {
+    vec3 H = normalize(V + L);
+    
+    float NDF = D_GGX(N, H, roughness);
+    float G   = G_Smith(N, V, L, roughness);
+    vec3 F    = F_Schlick(max(dot(H, V), 0.0), F0);
+
+    vec3 numerator    = NDF * G * F;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+    vec3 specular     = numerator / denominator;
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+
+    float NdotL = max(dot(N, L), 0.0);
+    
+    return (kD * albedo / PI + specular) * radiance * NdotL;
+}
+
 void main() {
     vec3 fragPos = texture(gPosition, TexCoords).rgb;
-    vec3 normal = normalize(texture(gNormal, TexCoords).rgb);
-    vec3 albedo = pow(texture(gAlbedo, TexCoords).rgb, vec3(2.2));
-    vec3 ARM = texture(gARM, TexCoords).rgb;
+    vec3 normal  = normalize(texture(gNormal, TexCoords).rgb);
+    vec3 albedo  = pow(texture(gAlbedo, TexCoords).rgb, vec3(2.2));
+    vec3 ARM     = texture(gARM, TexCoords).rgb;
     
     float roughness = ARM.g;
-    float metallic = ARM.b;
-
-    Light light = Light(
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.1, 0.1, 0.1),
-        vec3(0.8, 0.8, 0.8),
-        1.0, 0.09, 0.032
-    );
+    float metallic  = ARM.b;
+    float ao        = ARM.r;
 
     vec3 V = normalize(-fragPos);
 
@@ -69,29 +113,33 @@ void main() {
 
     vec3 Lo = vec3(0.0);
 
-    vec3 L = normalize(light.position - fragPos);
-    vec3 H = normalize(V + L);
-    
-    float dist = length(light.position - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * dist + light.quadratic * (dist * dist));
-    vec3 radiance = light.diffuse * attenuation;
+    for(int i = 0; i < uDirLightCount; ++i) {
+        vec3 L = normalize(-uDirLights[i].direction);
+        vec3 radiance = uDirLights[i].color * uDirLights[i].intensity;
+        Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
+    }
 
-    float NDF = D_GGX(normal, H, roughness);
-    float G   = G_Smith(normal, V, L, roughness);
-    vec3 F    = F_Schlick(max(dot(H, V), 0.0), F0);
+    for(int i = 0; i < uPointLightCount; ++i) {
+        vec3 L = normalize(uPointLights[i].position - fragPos);
+        float distance = length(uPointLights[i].position - fragPos);
+        float attenuation = 1.0 / (uPointLights[i].constant + uPointLights[i].linear * distance + uPointLights[i].quadratic * (distance * distance));
+        vec3 radiance = uPointLights[i].color * uPointLights[i].intensity * attenuation;
+        Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
+    }
 
-    vec3 numerator    = NDF * G * F;
-    float denominator = 4.0 * max(dot(normal, V), 0.0) * max(dot(normal, L), 0.0) + 0.0001;
-    vec3 specular = numerator / denominator;
+    for(int i = 0; i < uSpotLightCount; ++i) {
+        vec3 L = normalize(uSpotLights[i].position - fragPos);
+        float distance = length(uSpotLights[i].position - fragPos);
+        
+        float attenuation = 1.0 / (uSpotLights[i].constant + 0.09 * distance + 0.032 * (distance * distance));
+        float theta = dot(L, normalize(-uSpotLights[i].direction)); 
+        float epsilon = uSpotLights[i].innerCutoff - uSpotLights[i].outerCutoff;
+        float intensity = clamp((theta - uSpotLights[i].outerCutoff) / epsilon, 0.0, 1.0); 
+        vec3 radiance = uSpotLights[i].color * uSpotLights[i].intensity * attenuation * intensity;
+        Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
+    }
 
-    vec3 kS = F;
-    vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - metallic;
-
-    float NdotL = max(dot(normal, L), 0.0);
-    Lo += (kD * albedo / PI + specular) * radiance * NdotL;
-
-    vec3 ambient = light.ambient * albedo;
+    vec3 ambient = vec3(0.03) * albedo * ao;
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));
