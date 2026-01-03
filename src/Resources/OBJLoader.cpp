@@ -202,6 +202,8 @@ LoadResult OBJLoader::Load(const std::string& filepath)
                             result.materials.push_back(std::make_shared<Material>());
                         }
                         activeMat = result.materials[materialMap[mName]];
+                        activeMat->SetNormal(Texture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f)));
+                        activeMat->SetRough(Texture(glm::vec4(1.0f, 1.0f, 0.0f, 1.0f)));
                     }
                     else if (mPrefix == "map_Kd") { // diffuse
                         if (activeMat) {
@@ -220,6 +222,14 @@ LoadResult OBJLoader::Load(const std::string& filepath)
                         if (activeMat) {
                             std::string path = ParseTexturePath(mss, baseDir);
                             if(!path.empty()) activeMat->SetRough(Texture(path));
+                        }
+                    }
+                    else if (mPrefix == "Kd")
+                    {
+                        if (activeMat && !activeMat->DiffuseTexture) {
+                            float r = 1.0f, g = 1.0f, b = 1.0f;
+                            mss >> r >> g >> b;
+                            activeMat->SetDiffuse(Texture(glm::vec4(r,g,b,1.0)));
                         }
                     }
                     else if (mPrefix == "map_d") { } // alpha/opacity 

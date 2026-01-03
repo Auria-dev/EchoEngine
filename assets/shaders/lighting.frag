@@ -7,6 +7,7 @@ uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedo;
 uniform sampler2D gARM;
+uniform sampler2D gSSAO;
 
 #define MAX_DIR_LIGHTS 4
 #define MAX_POINT_LIGHTS 16
@@ -101,7 +102,8 @@ void main() {
     vec3 normal  = normalize(texture(gNormal, TexCoords).rgb);
     vec3 albedo  = pow(texture(gAlbedo, TexCoords).rgb, vec3(2.2));
     vec3 ARM     = texture(gARM, TexCoords).rgb;
-    
+    float SSAO   = texture(gSSAO, TexCoords).r;
+
     float roughness = ARM.g;
     float metallic  = ARM.b;
     float ao        = ARM.r;
@@ -139,7 +141,7 @@ void main() {
         Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
     }
 
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 ambient = vec3(0.05) * albedo * ao * SSAO;
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));

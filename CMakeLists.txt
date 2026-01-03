@@ -53,7 +53,7 @@ set(IMGUI_SOURCES
 )
 
 add_library(ImGui STATIC ${IMGUI_SOURCES})
-target_include_directories(ImGui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
+target_include_directories(ImGui SYSTEM PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
 target_link_libraries(ImGui PRIVATE glfw Glad)
 
 # STB Image

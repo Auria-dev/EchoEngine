@@ -43,9 +43,15 @@ public:
     RenderTexture* GetGPUTexture(const Texture* cpuTexture);
 private:
     GBuffer m_GBuffer;
+    uint m_SSAOFBO, m_SSAOBlurFBO, m_SSAONoise;
+    uint m_SSAOColorBuffer, m_SSAOBlurBuffer;
     uint m_Width, m_Height;
     Shader* m_GBufferShader;
     Shader* m_LightingShader;
+    Shader* m_SSAOShader;
+    Shader* m_SSAOBlurShader;
+
+    std::vector<glm::vec3> m_SSAOKernel;
 
     std::unordered_map<const Mesh*, std::unique_ptr<MeshResource>> m_MeshCache;
     std::unordered_map<const Texture*, std::unique_ptr<RenderTexture>> m_TextureCache;
