@@ -14,7 +14,8 @@ float bias = 0.025;
 uniform vec2 uResolution;
 uniform mat4 uProjection;
 
-void main() {
+void main()
+{
 	vec2 noiseScale = uResolution / 4.0;
 	vec3 fragPos = texture(gPosition, TexCoords).rgb;
 	vec3 normal = normalize(texture(gNormal, TexCoords).rgb);
@@ -27,7 +28,8 @@ void main() {
 	mat3 TBN = mat3(T, B, normal);
 
 	float occlusion = 0.0; // 0 = not occluded, 1 = fully occluded
-	for (int i = 0; i < kernelSize; ++i) {
+	for (int i = 0; i < kernelSize; ++i)
+	{
 		vec3 samplePos = TBN * samples[i];
 		samplePos = fragPos + samplePos * radius;
 

@@ -100,12 +100,11 @@ void Application::Run()
     // room.LoadFromOBJ("assets/models/room.obj");
     // room.Translate(glm::vec3(3.3f, 2.5f, 0.0f));
     // room.Rotate(glm::vec3(0.0f, 20.0f, 0.0f));
+    // m_Scene.Entities.push_back(&room);
     
     // Entity ground;
     // ground.LoadFromOBJ("assets/models/landscape.obj");
     // ground.Scale(glm::vec3(1.0,0.5,1.0));
-    
-    // m_Scene.Entities.push_back(&room);
     // m_Scene.Entities.push_back(&ground);
 
     glm::vec3 lightColor(1.0f, 0.83f, 0.72);
@@ -129,10 +128,11 @@ void Application::Run()
     pointlight->Intensity = 4.2f;
     m_Scene.Lights.push_back(pointlight);
     
-    // DirectionalLight* dirLight = new DirectionalLight();
-    // dirLight->Direction = glm::vec3(0.0f, -0.252f, 0.968f);
-    // dirLight->Color = glm::vec3(1.0f, 0.0f, 0.0f);
-    // m_Scene.Lights.push_back(dirLight);
+    DirectionalLight* dirLight = new DirectionalLight();
+    dirLight->Direction = glm::vec3(0.482f, -0.626, 0.613);
+    dirLight->Color = glm::vec3(0.9f, 0.6f, 0.34f);
+    dirLight->Intensity = 20.0f;
+    m_Scene.Lights.push_back(dirLight);
 
     glm::vec3 positions[4] = {
         { 6.100, 2.600, -8.500},
@@ -297,6 +297,8 @@ void Application::Run()
             }
             ImGui::EndTabBar();
         }
+
+        m_Renderer.OnImGuiRender();
 
         ImGui::End();
 

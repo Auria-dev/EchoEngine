@@ -3,7 +3,7 @@ This is a work in progress
 
 <img src="Image.png">
 
-> All "heavy" models are from https://github.com/jvm-graphics-labs/awesome-3d-meshes/
+> All "heavy" (large) models are from https://github.com/jvm-graphics-labs/awesome-3d-meshes/
 
 <br /> 
 
@@ -12,11 +12,11 @@ This is a work in progress
 - Custom OBJ loader
 - Deferred rendering
 - SSAO
-- PBR lighting
+- PBR & IBL lighting
+- Skybox
 - 3 Light primitives
 
 # Plans for the future
-- IBL
 - Transparency support (split opaque and translucent meshes)
 - Binary compression of meshes
 - Texture block compression
@@ -34,4 +34,4 @@ This is a work in progress
 
 <br />
 
-> You can see what GLAD configuration I used [here](https://glad.dav1d.de/#language=c&specification=gl&api=gl%3D4.6&api=gles1%3Dnone&api=gles2%3Dnone&api=glsc2%3Dnone&profile=compatibility&loader=on)
+> You can find the GLAD configuration I used [here](https://glad.dav1d.de/#language=c&specification=gl&api=gl%3D4.6&api=gles1%3Dnone&api=gles2%3Dnone&api=glsc2%3Dnone&profile=compatibility&loader=on)

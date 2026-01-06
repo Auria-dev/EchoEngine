@@ -9,6 +9,10 @@ uniform sampler2D gAlbedo;
 uniform sampler2D gARM;
 uniform sampler2D gSSAO;
 
+uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
+uniform sampler2D brdfLUT;
+
 #define MAX_DIR_LIGHTS 4
 #define MAX_POINT_LIGHTS 16
 #define MAX_SPOT_LIGHTS 8
@@ -47,6 +51,7 @@ uniform SpotLight uSpotLights[MAX_SPOT_LIGHTS];
 uniform int uDirLightCount;
 uniform int uPointLightCount;
 uniform int uSpotLightCount;
+uniform mat4 uInverseView;
 
 const float PI = 3.14159265359;
 
@@ -75,6 +80,10 @@ float G_Smith(vec3 N, vec3 V, vec3 L, float roughness) {
 
 vec3 F_Schlick(float cosTheta, vec3 F0) {
     return F0 + (vec3(1.0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+vec3 F_SchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
 vec3 CalculatePBRLighting(vec3 L, vec3 V, vec3 N, vec3 radiance, vec3 albedo, float roughness, float metallic, vec3 F0) {
@@ -109,6 +118,7 @@ void main() {
     float ao        = ARM.r;
 
     vec3 V = normalize(-fragPos);
+    vec3 R = reflect(-V, normal);
 
     vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedo, metallic);
@@ -141,7 +151,24 @@ void main() {
         Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
     }
 
-    vec3 ambient = vec3(0.05) * albedo * ao * SSAO;
+
+    vec3 F = F_SchlickRoughness(max(dot(normal, V), 0.0), F0, roughness);
+    vec3 kS = F;
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;
+    
+    vec3 worldNormal = normalize(vec3(uInverseView * vec4(normal, 0.0)));
+    vec3 irradiance = texture(irradianceMap, worldNormal).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    vec3 worldR = vec3(uInverseView * vec4(R, 0.0));
+
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 prefilteredColor = textureLod(prefilterMap, worldR, roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 brdf  = texture(brdfLUT, vec2(max(dot(normal, V), 0.0), roughness)).rg;
+    vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+
+    vec3 ambient = (kD * diffuse + specular) * ao * SSAO;
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));
@@ -149,5 +176,5 @@ void main() {
 
     // FragColor = vec4(vec3(SSAO), 1.0);
     // FragColor = vec4(albedo, 1.0);
-    FragColor = vec4(color, 1.0);
+    FragColor = vec4(color,  1.0);
 }

@@ -1,8 +1,9 @@
 #version 330 core
-layout (location = 0) out vec3 gPosition;
-layout (location = 1) out vec3 gNormal;
-layout (location = 2) out vec3 gAlbedo;
-layout (location = 3) out vec3 gARM;
+
+layout (location = 0) out vec4 gPosition;
+layout (location = 1) out vec4 gNormal;
+layout (location = 2) out vec4 gAlbedo;
+layout (location = 3) out vec4 gARM;
 
 in VS_OUT {
     vec3 FragPos;
@@ -15,17 +16,17 @@ uniform sampler2D uNormal;
 uniform sampler2D uARM;
 
 void main() {
-    gPosition = fs_in.FragPos;
+    gPosition = vec4(fs_in.FragPos, 1.0);
 
     vec3 tNormal = texture(uNormal, fs_in.TexCoords).rgb;
     tNormal = normalize(tNormal * 2.0 - 1.0);
-
     vec3 viewNormal = normalize(fs_in.TBN * tNormal);
-    gNormal.rgb = viewNormal;
+    
+    gNormal = vec4(viewNormal, 1.0);
 
     vec3 tAlbedo = texture(uAlbedo, fs_in.TexCoords).rgb;
     vec3 tARM    = texture(uARM, fs_in.TexCoords).rgb;
 
-    gAlbedo.rgb = tAlbedo;
-    gARM.rgb = tARM;
+    gAlbedo = vec4(tAlbedo, 1.0);
+    gARM    = vec4(tARM, 1.0);
 }
