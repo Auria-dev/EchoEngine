@@ -94,39 +94,66 @@ Application::~Application()
 
 void Application::Run()
 {
-    Entity room;
-    room.LoadFromOBJ("assets/models/room.obj");
-    room.Translate(glm::vec3(0.0f, 3.3f, 0.0f));
+    std::cout << std::endl;
+
+    // Entity room;
+    // room.LoadFromOBJ("assets/models/room.obj");
+    // room.Translate(glm::vec3(3.3f, 2.5f, 0.0f));
+    // room.Rotate(glm::vec3(0.0f, 20.0f, 0.0f));
     
-    Entity ground;
-    ground.LoadFromOBJ("assets/models/landscape.obj");
-    ground.Scale(glm::vec3(1.0,0.5,1.0));
+    // Entity ground;
+    // ground.LoadFromOBJ("assets/models/landscape.obj");
+    // ground.Scale(glm::vec3(1.0,0.5,1.0));
     
+    // m_Scene.Entities.push_back(&room);
+    // m_Scene.Entities.push_back(&ground);
+
+    glm::vec3 lightColor(1.0f, 0.83f, 0.72);
+
+    Entity BistroExt;
+    BistroExt.LoadFromOBJ("assets/models/heavy/BistroExterior.obj");
+    BistroExt.SetScale(glm::vec3(0.01, 0.01, 0.01));
+    m_Scene.Entities.push_back(&BistroExt);
+
+    Entity BistroInt;
+    BistroInt.LoadFromOBJ("assets/models/heavy/interior.obj");
+    BistroInt.SetScale(glm::vec3(0.01, 0.01, 0.01));
+    m_Scene.Entities.push_back(&BistroInt);
+
     Camera t = Camera();
+    t.SetPosition(glm::vec3(6.3f, 4.0f, 4.0f));
     
     PointLight* pointlight = new PointLight();
-    pointlight->Position = glm::vec3(0.0f, 2.0f, 0.0f);
-    pointlight->Color = glm::vec3(0.0f, 0.0f, 1.0f);
+    pointlight->Position = glm::vec3(2.5f, 2.7f, -0.8f);
+    pointlight->Color = lightColor;
+    pointlight->Intensity = 4.2f;
     m_Scene.Lights.push_back(pointlight);
     
-    DirectionalLight* dirLight = new DirectionalLight();
-    dirLight->Direction = glm::vec3(0.0f, -0.252f, 0.968f);
-    dirLight->Color = glm::vec3(1.0f, 0.0f, 0.0f);
-    m_Scene.Lights.push_back(dirLight);
+    // DirectionalLight* dirLight = new DirectionalLight();
+    // dirLight->Direction = glm::vec3(0.0f, -0.252f, 0.968f);
+    // dirLight->Color = glm::vec3(1.0f, 0.0f, 0.0f);
+    // m_Scene.Lights.push_back(dirLight);
 
-    SpotLight* spotLight = new SpotLight();
-    spotLight->Direction = glm::vec3(0.8f, -0.4f, -0.3f);
-    spotLight->Position = glm::vec3(0.0f, 5.3f, 0.0f);
-    spotLight->Color = glm::vec3(0.0f, 1.0f, 0.0f);
-    spotLight->InnerCutoff = 12.5f;
-    spotLight->OuterCutoff = 17.5f;
-    m_Scene.Lights.push_back(spotLight);
+    glm::vec3 positions[4] = {
+        { 6.100, 2.600, -8.500},
+        { 4.25, 2.600, -4.920},
+        { 5.0, 2.6, -0.5},
+        { 8.0, 2.6, 1.0}
+    };
+
+    for (int i=0;i<4;i++) {
+        SpotLight* spotLight = new SpotLight();
+        spotLight->Direction = glm::vec3(0.0f, -1.0f, 0.0f);
+        spotLight->Position = positions[i];
+        spotLight->Color = lightColor;
+        spotLight->InnerCutoff = 16.0f;
+        spotLight->OuterCutoff = 120.0f;
+        m_Scene.Lights.push_back(spotLight);
+    }
 
     m_Scene.activeCamera = &t;
     m_Scene.activeCamera->SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());
 
-    m_Scene.Entities.push_back(&room);
-    m_Scene.Entities.push_back(&ground);
     m_Renderer.Init(m_WWidth, m_WHeight);
     while (!glfwWindowShouldClose(m_Window))
     {

@@ -174,7 +174,7 @@ void Renderer::BeginFrame()
 	glBindFramebuffer(GL_FRAMEBUFFER, m_GBuffer.FBO);
 	glViewport(0, 0, m_Width, m_Height);
 	glEnable(GL_DEPTH_TEST);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.53f, 0.8f, 0.92f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -224,7 +224,7 @@ void Renderer::DrawScene(const SceneData& scene)
     // lighting pass
     glViewport(0, 0, m_Width, m_Height);
     glDisable(GL_DEPTH_TEST);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClearColor(0.53f, 0.8f, 0.92f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     
     m_LightingShader->Bind();

@@ -1,15 +1,17 @@
 #include "OBJLoader.h"
 
+#include <chrono>
 #include <iostream>
 #include <fstream>
-#include <sstream>
+#include <vector>
 #include <unordered_map>
 #include <filesystem>
+#include <charconv>
+#include <cstring>
 
-// temporary helper
 struct VertexKey
 {
-    unsigned int v, vt, vn;
+    int v, vt, vn;
 
     bool operator==(const VertexKey& other) const
     {
@@ -21,36 +23,157 @@ struct VertexKeyHash
 {
     std::size_t operator()(const VertexKey& k) const
     {
-        return std::hash<unsigned int>()(k.v) ^ (std::hash<unsigned int>()(k.vt) << 1) ^ (std::hash<unsigned int>()(k.vn) << 2);
+        std::size_t seed = 0;
+        seed ^= std::hash<int>()(k.v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<int>()(k.vt) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<int>()(k.vn) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
     }
 };
 
-static std::string ParseTexturePath(std::stringstream& ss, const std::string& baseDir)
+static int ParseInt(const char*& p, const char* end)
 {
-    std::string token;
-    std::string filename = "";
-    
-    while(ss >> token)
-    {
-        if (token == "-bm") { ss >> token; continue; }                   // Bump multiplier (1 arg)
-        if (token == "-o")  { ss >> token >> token >> token; continue; } // Offset (3 args)
-        if (token == "-s")  { ss >> token >> token >> token; continue; } // Scale (3 args)
-        if (token == "-mm") { ss >> token >> token; continue; }          // Color gain/offset (2 args)
-        if (token == "-blendu" || token == "-blendv" || token == "-imfchan" || token == "-texres") { 
-            ss >> token; continue; 
-        }
-        
-        if (token[0] == '-') continue;
+    while (p < end && (*p == ' ' || *p == '/')) p++;
+    if (p >= end) return 0;
 
-        filename = token;
-        break; 
+    int val = 0;
+    int sign = 1;
+    
+    if (*p == '-')
+    {
+        sign = -1;
+        p++;
     }
 
+    while (p < end && *p >= '0' && *p <= '9')
+    {
+        val = val * 10 + (*p - '0');
+        p++;
+    }
+    return val * sign;
+}
+
+static float ParseFloat(const char*& p, const char* end)
+{
+    while (p < end && *p == ' ') p++;
+    if (p >= end) return 0.0f;
+
+    float val = 0.0f;
+    auto res = std::from_chars(p, end, val);
+    
+    p = res.ptr; 
+    return val;
+}
+
+static void SkipLine(const char*& p, const char* end)
+{
+    while (p < end && *p != '\n') p++;
+    if (p < end) p++;
+}
+
+static void SkipSpace(const char*& p, const char* end)
+{
+    while (p < end && (*p == ' ' || *p == '\t')) p++;
+}
+
+static std::string ParseStringToken(const char*& p, const char* end)
+{
+    SkipSpace(p, end);
+    const char* start = p;
+    while (p < end && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') p++;
+    return std::string(start, p - start);
+}
+
+static std::string ParseTexturePath(const char*& p, const char* end, const std::string& baseDir)
+{
+    SkipSpace(p, end);
+    const char* lineEnd = p;
+    while (lineEnd < end && *lineEnd != '\n' && *lineEnd != '\r') lineEnd++;
+    
+    std::string line(p, lineEnd - p);
+    p = lineEnd;
+
+    std::stringstream ss(line);
+    std::string token, filename;
+    while(ss >> token) {
+        if(token[0] == '-')
+        {
+             if (token == "-bm") ss >> token;
+             else if (token == "-o" || token == "-s") { ss >> token >> token; }
+             continue;
+        }
+        filename = token;
+    }
+    
     if (filename.empty()) return "";
-
     std::replace(filename.begin(), filename.end(), '\\', '/');
-
     return baseDir + filename;
+}
+
+void OBJLoader::ParseMTL(const std::string& filepath, std::vector<std::shared_ptr<Material>>& materials, std::unordered_map<std::string, int>& matMap)
+{
+    std::ifstream file(filepath);
+    if (!file.is_open()) return;
+
+    std::string baseDir = GetBaseDir(filepath);
+    std::string line;
+    std::shared_ptr<Material> activeMat = nullptr;
+
+    while (std::getline(file, line))
+    {
+        if (line.empty()) continue;
+        
+        const char* p = line.c_str();
+        const char* end = p + line.size();
+        
+        SkipSpace(p, end);
+        if (p == end || *p == '#') continue;
+
+        if (strncmp(p, "newmtl", 6) == 0)
+        {
+            p += 6;
+            std::string name = ParseStringToken(p, end);
+            if (matMap.find(name) == matMap.end())
+            {
+                matMap[name] = (int)materials.size();
+                materials.push_back(std::make_shared<Material>());
+            }
+            activeMat = materials[matMap[name]];
+            activeMat->SetNormal(Texture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f)));
+            activeMat->SetRough(Texture(glm::vec4(1.0f, 1.0f, 0.0f, 1.0f)));
+        }
+        else if (activeMat) {
+            if (strncmp(p, "map_Kd", 6) == 0)
+            {
+                p += 6;
+                std::string path = ParseTexturePath(p, end, baseDir);
+                if (!path.empty()) activeMat->SetDiffuse(Texture(path));
+            }
+            else if (strncmp(p, "map_Bump", 8) == 0 || strncmp(p, "map_bump", 8) == 0)
+            {
+                p += 8;
+                std::string path = ParseTexturePath(p, end, baseDir);
+                if (!path.empty()) activeMat->SetNormal(Texture(path));
+            }
+            else if (strncmp(p, "map_Ns", 6) == 0 || strncmp(p, "map_Pr", 6) == 0)
+            {
+                p += 6;
+                std::string path = ParseTexturePath(p, end, baseDir);
+                if (!path.empty()) activeMat->SetRough(Texture(path));
+            }
+            else if (strncmp(p, "Kd", 2) == 0)
+            {
+                p += 2;
+                if (!activeMat->DiffuseTexture)
+                {
+                    float r = ParseFloat(p, end);
+                    float g = ParseFloat(p, end);
+                    float b = ParseFloat(p, end);
+                    activeMat->SetDiffuse(Texture(glm::vec4(r, g, b, 1.0f)));
+                }
+            }
+        }
+    }
 }
 
 std::string OBJLoader::GetBaseDir(const std::string& filepath)
@@ -59,255 +182,226 @@ std::string OBJLoader::GetBaseDir(const std::string& filepath)
     return p.parent_path().string() + "/";
 }
 
-void OBJLoader::ParseVertexIndex(const std::string& token, std::vector<unsigned int>& vIdx, std::vector<unsigned int>& vtIdx, std::vector<unsigned int>& vnIdx)
-{
-    std::stringstream ss(token);
-    std::string segment;
-    std::vector<std::string> parts;
-
-    while (std::getline(ss, segment, '/'))
-    {
-        parts.push_back(segment);
-    }
-
-    // position index
-    if (parts.size() > 0 && !parts[0].empty()) vIdx.push_back(std::stoi(parts[0]));
-    else                                       vIdx.push_back(0);
-
-    // texcoord index
-    if (parts.size() > 1 && !parts[1].empty()) vtIdx.push_back(std::stoi(parts[1]));
-    else                                       vtIdx.push_back(0);
-
-    // normal index
-    if (parts.size() > 2 && !parts[2].empty()) vnIdx.push_back(std::stoi(parts[2]));
-    else                                       vnIdx.push_back(0);
-}
+void OBJLoader::ParseVertexIndex(const std::string& token, std::vector<unsigned int>& vIdx, std::vector<unsigned int>& vtIdx, std::vector<unsigned int>& vnIdx) {}
 
 LoadResult OBJLoader::Load(const std::string& filepath)
 {
+    std::cout << " [OBJ DEBUG] Loading (Optimized): " << filepath << std::endl;
+    auto start_time = std::chrono::steady_clock::now();
+
     LoadResult result;
     result.mesh = std::make_shared<Mesh>();
     result.mesh->Filepath = filepath;
 
-    std::ifstream file(filepath);
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     if (!file.is_open())
     {
         std::cerr << "OBJLoader Error: Could not open file: " << filepath << std::endl;
         return result;
     }
+    
+    std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
 
-    std::string baseDir = GetBaseDir(filepath);
+    if (fileSize == 0) return result;
 
-    std::vector<glm::vec3> tempPositions;
-    std::vector<glm::vec2> tempUVs;
-    std::vector<glm::vec3> tempNormals;
+    std::vector<char> buffer(fileSize);
+    if (!file.read(buffer.data(), fileSize))
+    {
+        std::cerr << "OBJLoader Error: Failed to read file." << std::endl;
+        return result;
+    }
+    file.close();
 
-    std::vector<unsigned int> vIndices;
-    std::vector<unsigned int> vtIndices;
-    std::vector<unsigned int> vnIndices;
+    size_t estimatedVerts = fileSize / 64; 
+    std::vector<glm::vec3> tempPositions; tempPositions.reserve(estimatedVerts);
+    std::vector<glm::vec2> tempUVs;       tempUVs.reserve(estimatedVerts);
+    std::vector<glm::vec3> tempNormals;   tempNormals.reserve(estimatedVerts);
+
+    result.mesh->Vertices.reserve(estimatedVerts);
+    result.mesh->Indices.reserve(estimatedVerts * 3);
 
     std::unordered_map<std::string, int> materialMap;
     std::string currentMtlName = "";
-    
+    std::string baseDir = GetBaseDir(filepath);
+
     std::unordered_map<VertexKey, unsigned int, VertexKeyHash> uniqueVertices;
-    
-    std::string line;
+    uniqueVertices.reserve(estimatedVerts);
+
     SubMesh currentSubMesh;
     currentSubMesh.BaseIndex = 0;
     currentSubMesh.IndexCount = 0;
     currentSubMesh.MaterialIndex = 0;
-
     bool firstSubMesh = true;
 
-    while (std::getline(file, line))
+    const char* p = buffer.data();
+    const char* end = p + fileSize;
+
+    while (p < end)
     {
-        std::stringstream ss(line);
-        std::string prefix;
-        ss >> prefix;
+        while (p < end && (*p == ' ' || *p == '\t')) p++;
+        if (p >= end) break;
 
-        if (prefix == "v") // vertex position
+        char c = *p;
+        
+        if (c == '#') SkipLine(p, end);
+        else if (c == 'v') 
         {
-            glm::vec3 pos;
-            ss >> pos.x >> pos.y >> pos.z;
-            tempPositions.push_back(pos);
-        }
-        else if (prefix == "vt") // texture coordinate
-        {
-            glm::vec2 uv;
-            ss >> uv.x >> uv.y;
-            tempUVs.push_back(uv);
-        }
-        else if (prefix == "vn") // normal
-        {
-            glm::vec3 norm;
-            ss >> norm.x >> norm.y >> norm.z;
-            tempNormals.push_back(norm);
-        }
-        else if (prefix == "usemtl") // material
-        {
-            std::string matName;
-            ss >> matName;
-
-            if (!firstSubMesh)
+            p++;
+            if (*p == ' ') // Position
             {
-                result.mesh->SubMeshes.push_back(currentSubMesh);
-                
-                currentSubMesh.BaseIndex += currentSubMesh.IndexCount;
-                currentSubMesh.IndexCount = 0;
+                float x = ParseFloat(p, end);
+                float y = ParseFloat(p, end);
+                float z = ParseFloat(p, end);
+                tempPositions.emplace_back(x, y, z);
+            }
+            else if (*p == 't') // Texture
+            {
+                p++;
+                float u = ParseFloat(p, end);
+                float v = ParseFloat(p, end);
+                tempUVs.emplace_back(u, v);
+            }
+            else if (*p == 'n') // Normal
+            {
+                p++;
+                float x = ParseFloat(p, end);
+                float y = ParseFloat(p, end);
+                float z = ParseFloat(p, end);
+                tempNormals.emplace_back(x, y, z);
+            }
+            else 
+            {
+                SkipLine(p, end);
+            }
+        }
+        else if (c == 'f') // Face
+        {
+            p++;
+            unsigned int faceVIndices[16]; 
+            int faceVertCount = 0;
+
+            while (p < end && *p != '\n' && *p != '\r')
+            {
+                SkipSpace(p, end);
+                if (*p == '\n' || *p == '\r') break;
+
+                int v = 0, vt = 0, vn = 0;
+
+                v = ParseInt(p, end);
+
+                if (p < end && *p == '/')
+                {
+                    p++;
+                    if (*p != '/')
+                    {
+                        vt = ParseInt(p, end);
+                    }
+                    if (p < end && *p == '/')
+                    {
+                        p++;
+                        vn = ParseInt(p, end);
+                    }
+                }
+
+                if (v < 0)  v  = (int)tempPositions.size() + v + 1;
+                if (vt < 0) vt = (int)tempUVs.size() + vt + 1;
+                if (vn < 0) vn = (int)tempNormals.size() + vn + 1;
+
+                VertexKey key = { v, vt, vn };
+
+                auto it = uniqueVertices.find(key);
+                unsigned int index;
+
+                if (it != uniqueVertices.end())
+                {
+                    index = it->second;
+                }
+                else
+                {
+                    Vertex newVertex;
+                    
+                    if (v  > 0 && v  <= (int)tempPositions.size()) newVertex.Position = tempPositions[v - 1];
+                    else                                           newVertex.Position = glm::vec3(0.0f);
+
+                    if (vt > 0 && vt <= (int)tempUVs.size())       newVertex.TexCoords = glm::vec3(tempUVs[vt - 1], 0.0f);
+                    else                                           newVertex.TexCoords = glm::vec3(0.0f);
+
+                    if (vn > 0 && vn <= (int)tempNormals.size())   newVertex.Normal = tempNormals[vn - 1];
+                    else                                           newVertex.Normal = glm::vec3(0.0f, 1.0f, 0.0f);
+
+                    index = (unsigned int)result.mesh->Vertices.size();
+                    result.mesh->Vertices.push_back(newVertex);
+                    uniqueVertices[key] = index;
+                }
+
+                if (faceVertCount < 16)
+                {
+                    faceVIndices[faceVertCount++] = index;
+                }
             }
 
-            if (materialMap.find(matName) == materialMap.end())
+            for (int i = 1; i < faceVertCount - 1; i++)
             {
-                materialMap[matName] = (int)result.materials.size();
-                result.materials.push_back(std::make_shared<Material>()); 
-            }
-            
-            currentSubMesh.MaterialIndex = materialMap[matName];
-            currentSubMesh.NodeName = matName;
-            firstSubMesh = false;
-        }
-        else if (prefix == "f") // face
-        {
-            std::string token;
-            std::vector<std::string> faceTokens;
-            while (ss >> token) faceTokens.push_back(token);
-
-            // triangulate
-            for (size_t i = 1; i < faceTokens.size() - 1; i++)
-            {
-                ParseVertexIndex(faceTokens[0], vIndices, vtIndices, vnIndices);
-                ParseVertexIndex(faceTokens[i], vIndices, vtIndices, vnIndices);
-                ParseVertexIndex(faceTokens[i+1], vIndices, vtIndices, vnIndices);
+                result.mesh->Indices.push_back(faceVIndices[0]);
+                result.mesh->Indices.push_back(faceVIndices[i]);
+                result.mesh->Indices.push_back(faceVIndices[i + 1]);
                 currentSubMesh.IndexCount += 3;
             }
         }
-        else if (prefix == "mtllib") {
-            std::string mtlFilename; ss >> mtlFilename;
-            std::string mtlPath = baseDir + mtlFilename;
+        else if (c == 'u') // usemtl
+        {
+            if (strncmp(p, "usemtl", 6) == 0)
+            {
+                p += 6;
+                std::string matName = ParseStringToken(p, end);
 
-            std::ifstream mtlFile(mtlPath);
-            if (mtlFile.is_open()) {
-                std::string mtlLine;
-                std::shared_ptr<Material> activeMat = nullptr;
-
-                while (std::getline(mtlFile, mtlLine)) {
-                    if (mtlLine.empty()) continue;
-                    std::stringstream mss(mtlLine);
-                    std::string mPrefix; mss >> mPrefix;
-
-                    if (mPrefix == "newmtl") {
-                        std::string mName; mss >> mName;
-                        if (materialMap.find(mName) == materialMap.end()) {
-                            materialMap[mName] = (int)result.materials.size();
-                            result.materials.push_back(std::make_shared<Material>());
-                        }
-                        activeMat = result.materials[materialMap[mName]];
-                        activeMat->SetNormal(Texture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f)));
-                        activeMat->SetRough(Texture(glm::vec4(1.0f, 1.0f, 0.0f, 1.0f)));
-                    }
-                    else if (mPrefix == "map_Kd") { // diffuse
-                        if (activeMat) {
-                            std::string path = ParseTexturePath(mss, baseDir);
-                            if(!path.empty()) activeMat->SetDiffuse(Texture(path));
-                        }
-                    }
-                    else if (mPrefix == "map_Bump" || mPrefix == "map_bump") { // normal/bump
-                        if (activeMat) {
-                            std::string path = ParseTexturePath(mss, baseDir);
-                            if(!path.empty()) activeMat->SetNormal(Texture(path));
-                        }
-                    }
-                    else if (mPrefix == "map_Ns" || mPrefix == "map_Pr") { // roughness
-                        // Note: OBJ Ns is technically Specular Highlight, but often used for Roughness in PBR
-                        if (activeMat) {
-                            std::string path = ParseTexturePath(mss, baseDir);
-                            if(!path.empty()) activeMat->SetRough(Texture(path));
-                        }
-                    }
-                    else if (mPrefix == "Kd")
-                    {
-                        if (activeMat && !activeMat->DiffuseTexture) {
-                            float r = 1.0f, g = 1.0f, b = 1.0f;
-                            mss >> r >> g >> b;
-                            activeMat->SetDiffuse(Texture(glm::vec4(r,g,b,1.0)));
-                        }
-                    }
-                    else if (mPrefix == "map_d") { } // alpha/opacity 
+                if (!firstSubMesh)
+                {
+                    result.mesh->SubMeshes.push_back(currentSubMesh);
+                    currentSubMesh.BaseIndex += currentSubMesh.IndexCount;
+                    currentSubMesh.IndexCount = 0;
                 }
-            } else {
-                std::cerr << "OBJLoader Warning: Could not find MTL file " << mtlPath << std::endl;
+
+                if (materialMap.find(matName) == materialMap.end())
+                {
+                    materialMap[matName] = (int)result.materials.size();
+                    result.materials.push_back(std::make_shared<Material>());
+                }
+                currentSubMesh.MaterialIndex = materialMap[matName];
+                currentSubMesh.NodeName = matName;
+                firstSubMesh = false;
             }
+            else SkipLine(p, end);
+        }
+        else if (c == 'm') // mtllib
+        {
+            if (strncmp(p, "mtllib", 6) == 0)
+            {
+                p += 6;
+                std::string mtlName = ParseStringToken(p, end);
+                ParseMTL(baseDir + mtlName, result.materials, materialMap);
+            }
+            else SkipLine(p, end);
+        }
+        else
+        {
+            SkipLine(p, end);
         }
     }
 
     result.mesh->SubMeshes.push_back(currentSubMesh);
 
-    for (size_t i = 0; i < vIndices.size(); ++i)
-    {
-        unsigned int v = vIndices[i];
-        unsigned int vt = vtIndices[i];
-        unsigned int vn = vnIndices[i];
-
-        VertexKey key = { v, vt, vn };
-
-        if (uniqueVertices.count(key) == 0)
-        {
-            Vertex newVertex;
-            
-            if (v > 0) newVertex.Position = tempPositions[v - 1];
-            
-            if (vt > 0) newVertex.TexCoords = glm::vec3(tempUVs[vt - 1], 0.0f);
-            else newVertex.TexCoords = glm::vec3(0.0f);
-
-            if (vn > 0) newVertex.Normal = tempNormals[vn - 1];
-            else newVertex.Normal = glm::vec3(0.0f, 1.0f, 0.0f);
-
-            uniqueVertices[key] = (unsigned int)result.mesh->Vertices.size();
-            result.mesh->Vertices.push_back(newVertex);
-        }
-
-        result.mesh->Indices.push_back(uniqueVertices[key]);
-        currentSubMesh.IndexCount++;
-    }
-        
-    result.mesh->RecalculateNormals(); 
+    result.mesh->RecalculateNormals();
     result.mesh->RecalculateTangents();
 
+    auto end_time = std::chrono::steady_clock::now();
+    long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+
     std::cout << "==================================================" << std::endl;
-    std::cout << " [OBJ DEBUG] Loaded: " << filepath << std::endl;
-    std::cout << "--------------------------------------------------" << std::endl;
+    std::cout << " [OBJ DEBUG] Done! Took " << ms / 60000 << "m " << (ms / 1000) % 60 << "s " << ms % 1000 << "ms" << std::endl; 
     std::cout << "  Vertices:  " << result.mesh->Vertices.size() << std::endl;
     std::cout << "  Indices:   " << result.mesh->Indices.size() << std::endl;
-    std::cout << "  Materials: " << result.materials.size() << std::endl;
-    std::cout << "  SubMeshes: " << result.mesh->SubMeshes.size() << std::endl;
-    std::cout << "--------------------------------------------------" << std::endl;
-
-    uint totalIndices = 0;
-    for (size_t i = 0; i < result.mesh->SubMeshes.size(); i++)
-    {
-        const SubMesh& sm = result.mesh->SubMeshes[i];
-        std::string matName = sm.NodeName.empty() ? "None" : sm.NodeName;
-        
-        std::cout << "  [SubMesh " << i << "]" << std::endl;
-        std::cout << "    > Material:   " << matName << " (Index: " << sm.MaterialIndex << ")" << std::endl;
-        std::cout << "    > IndexCount: " << sm.IndexCount << std::endl;
-        std::cout << "    > BaseIndex:  " << sm.BaseIndex << std::endl;
-        
-        totalIndices += sm.IndexCount;
-    }
-
-    std::cout << "--------------------------------------------------" << std::endl;
-    
-    if (totalIndices != result.mesh->Indices.size())
-    {
-        std::cerr << " [CRITICAL ERROR] SubMesh count mismatch!" << std::endl;
-        std::cerr << " Expected: " << result.mesh->Indices.size() << std::endl;
-        std::cerr << " Actual:   " << totalIndices << std::endl;
-    }
-    else
-    {
-        std::cout << " [OK] Mesh Integrity Verified." << std::endl;
-    }
     std::cout << "==================================================" << std::endl;
 
     return result;

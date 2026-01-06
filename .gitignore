@@ -1,2 +1,5 @@
 build
 .vscode
+
+# large 3d models
+assets/models/heavy
