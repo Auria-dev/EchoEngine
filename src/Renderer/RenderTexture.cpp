@@ -28,17 +28,17 @@ void RenderTexture::CreateTexture(const Texture& texture)
     if (texture.GetChannels() == 1)
     {
         internalFormat = GL_R8;
-        dataFormat = GL_RED;
+        dataFormat     = GL_RED;
     }
     else if (texture.GetChannels() == 3)
     {
         internalFormat = GL_RGB8;
-        dataFormat = GL_RGB;
+        dataFormat     = GL_RGB;
     }
     else if (texture.GetChannels() == 4)
     {
         internalFormat = GL_RGBA8;
-        dataFormat = GL_RGBA;
+        dataFormat     = GL_RGBA;
     }
 
     glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, m_Width, m_Height, 0, dataFormat, GL_UNSIGNED_BYTE, texture.GetData());

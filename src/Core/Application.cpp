@@ -70,6 +70,21 @@ Application::Application()
     ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
+        
+    ImGuiStyle * style = &ImGui::GetStyle();
+
+    style->WindowPadding            = ImVec2(15, 15);
+    style->WindowRounding           = 5.0f;
+    style->FramePadding             = ImVec2(5, 5);
+    style->FrameRounding            = 4.0f;
+    style->ItemSpacing              = ImVec2(12, 8);
+    style->ItemInnerSpacing         = ImVec2(8, 6);
+    style->IndentSpacing            = 25.0f;
+    style->ScrollbarSize            = 15.0f;
+    style->ScrollbarRounding        = 9.0f;
+    style->GrabMinSize              = 5.0f;
+    style->GrabRounding             = 3.0f;
+
     InputManager::GetInstance().BindAction("Quit",         InputType::Key, GLFW_KEY_ESCAPE);
     InputManager::GetInstance().BindAction("ToggleCursor", InputType::Key, GLFW_KEY_ENTER);
     InputManager::GetInstance().BindAction("Fullscreen",   InputType::Key, GLFW_KEY_F11);
@@ -183,6 +198,11 @@ void Application::Run()
         ImGui::Text("Pitch: %.2f, Yaw: %.2f", m_Scene.activeCamera->GetPitch(), m_Scene.activeCamera->GetYaw());
 
         ImGui::End();
+
+        ImGui::Begin("Style editor");        
+        ImGui::ShowStyleEditor();
+        ImGui::End();
+
 
         ImGui::Begin("Scene Inspector");
 
