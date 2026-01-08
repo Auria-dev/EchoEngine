@@ -1,11 +1,14 @@
 #include "Renderer.h"
 #include <iostream>
 #include <random>
+#include <algorithm>
 
 void Renderer::Init(int width, int height)
 {
     m_Width = width;
     m_Height = height;
+
+    m_ForwardShader = new Shader("assets/shaders/forward.vert", "assets/shaders/forward.frag");
 
     m_GBufferShader = new Shader("assets/shaders/gbuffer.vert", "assets/shaders/gbuffer.frag");
     m_LightingShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/lighting.frag");
@@ -387,6 +390,11 @@ void Renderer::Init(int width, int height)
     m_GBufferShader->SetUniform1i("uAlbedo", 0);
     m_GBufferShader->SetUniform1i("uNormal", 1);
     m_GBufferShader->SetUniform1i("uARM", 2);
+
+    m_ForwardShader->Bind();
+    m_ForwardShader->SetUniform1i("uAlbedo", 0);
+    m_ForwardShader->SetUniform1i("uNormal", 1);
+    m_ForwardShader->SetUniform1i("uARM", 2);
 }
 
 void Renderer::Shutdown() { }
@@ -453,7 +461,7 @@ void Renderer::OnImGuiRender()
     
     ImGui::NewLine();
 
-    std::string DrawCmdCount = "Opaque: " + std::to_string(m_OpaqueQueue.size()) + " Transparent: " + std::to_string(m_TransparentQueue.size());
+    std::string DrawCmdCount = "Opaque: " + std::to_string(m_DeferredQueue.size()) + " Transparent: " + std::to_string(m_ForwardQueue.size());
     ImGui::Text("%s",DrawCmdCount.c_str());
 
     ImGui::End();
@@ -467,8 +475,8 @@ void Renderer::BeginFrame()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    m_OpaqueQueue.clear();
-    m_TransparentQueue.clear();
+    m_DeferredQueue.clear();
+    m_ForwardQueue.clear();
 }
 
 void Renderer::EndFrame() { }
@@ -483,12 +491,14 @@ void Renderer::DrawScene()
     // geometry pass
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 
     m_GBufferShader->Bind();
     m_GBufferShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
     m_GBufferShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
 
-    for (const DrawCmd& cmd : m_OpaqueQueue)
+    for (const DrawCmd& cmd : m_DeferredQueue)
     {
         m_GBufferShader->SetUniformMat4f("uModel", cmd.Model);
         BindMaterial(cmd.Material);
@@ -622,12 +632,10 @@ void Renderer::DrawScene()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glEnable(GL_DEPTH_TEST);
 
-    // draw transparent objects here
-
     glDepthFunc(GL_LEQUAL);
     m_SkyboxShader->Bind();
     m_SkyboxShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
-    m_SkyboxShader->SetUniformMat4f("uProj", m_Scene->activeCamera->GetProjectionMatrix());
+    m_SkyboxShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
     glActiveTexture(GL_TEXTURE0);
     // glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_EnvCubemap);
@@ -635,6 +643,32 @@ void Renderer::DrawScene()
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
     glDepthFunc(GL_LESS);
+
+    m_ForwardShader->Bind();
+    m_ForwardShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
+    m_ForwardShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
+
+    glEnable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE); 
+
+    // definitely needs some improvement
+    std::sort(m_ForwardQueue.begin(), m_ForwardQueue.end(), [](const DrawCmd& a, const DrawCmd& b) { return a.depth > b.depth; });
+
+    for (const DrawCmd& cmd : m_ForwardQueue)
+    {
+        m_ForwardShader->SetUniformMat4f("uModel", cmd.Model);
+        
+        float opacity = cmd.Material ? cmd.Material->Dissolve : 1.0f;
+        m_ForwardShader->SetUniform1f("uOpacity", opacity);
+
+        BindMaterial(cmd.Material);
+        cmd.Mesh->Bind();
+        cmd.Mesh->DrawSubMesh(cmd.SubMeshIndex);
+    }
+    
+    glDepthMask(GL_TRUE);
 }
 
 void Renderer::Resize(int nWidth, int nHeight)
@@ -711,8 +745,8 @@ void Renderer::DrawEntity(const Entity& entity, Shader& shader)
             glm::vec4 viewCenter  = m_Scene->activeCamera->GetViewMatrix() * worldCenter;
             item.depth = -viewCenter.z;
             
-            if (mat->Translucent) m_TransparentQueue.push_back(item);
-            else                  m_OpaqueQueue.push_back(item);
+            if (mat->Translucent) m_ForwardQueue.push_back(item);
+            else                  m_DeferredQueue.push_back(item);
         }
     }
 }

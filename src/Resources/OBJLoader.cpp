@@ -176,7 +176,21 @@ void OBJLoader::ParseMTL(const std::string& filepath, std::vector<std::shared_pt
             }
             else if (strncmp(p, "Tr", 2) == 0)
             {
-                // handle transparency
+                p += 2;
+                float tr = ParseFloat(p, end);
+                activeMat->Dissolve = 1.0f - tr; // inverse of dissolve
+                
+                if (activeMat->Dissolve < 1.0f) 
+                    activeMat->Translucent = true;
+            }
+            else if (strncmp(p, "map_d ", 5) == 0)
+            {
+                p += 5;
+                std::string path = ParseTexturePath(p, end, baseDir);
+                if (!path.empty()) 
+                {
+                    activeMat->SetAlphaMask(Texture(path));
+                }
             }
             else if (strncmp(p, "d ", 2) == 0)
             {

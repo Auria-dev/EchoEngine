@@ -12,7 +12,13 @@ Texture::Texture(const std::string& filepath)
 Texture::Texture(int width, int height, int channels)
     : m_Width(width), m_Height(height), m_Channels(channels)
 {
-    m_LocalBuffer = (unsigned char*)malloc(width * height * channels);
+    m_LocalBuffer = (uchar*)malloc(width * height * channels);
+}
+
+Texture::Texture(int width, int height, int channels, uchar* buffer)
+    : m_Width(width), m_Height(height), m_Channels(channels), m_LocalBuffer(buffer)
+{
+
 }
 
 Texture::~Texture()

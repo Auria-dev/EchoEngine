@@ -37,6 +37,7 @@ struct DrawCmd
     
     float depth;
 
+    bool operator<(const DrawCmd& x) const { return depth < x.depth; }
 };
 
 class Renderer
@@ -71,6 +72,7 @@ private:
     uint m_SSAOColorBuffer, m_SSAOBlurBuffer;
     uint m_SkyboxTexture, m_IrradianceMap, m_EnvCubemap, m_SkyboxVAO, m_SkyboxVBO, m_CubeVAO, m_CubeVBO, m_CaptureFBO, m_CaptureRBO, m_PrefilterMap, m_BRDFLUTTexture;
     uint m_Width, m_Height;
+    Shader* m_ForwardShader;
     Shader* m_GBufferShader;
     Shader* m_LightingShader;
     Shader* m_SSAOShader;
@@ -83,8 +85,8 @@ private:
 
     std::vector<glm::vec3> m_SSAOKernel;
 
-    std::vector<DrawCmd> m_OpaqueQueue;
-    std::vector<DrawCmd> m_TransparentQueue;
+    std::vector<DrawCmd> m_DeferredQueue;
+    std::vector<DrawCmd> m_ForwardQueue;
 
     std::unordered_map<const Mesh*, std::unique_ptr<MeshResource>> m_MeshCache;
     std::unordered_map<const Texture*, std::unique_ptr<RenderTexture>> m_TextureCache;

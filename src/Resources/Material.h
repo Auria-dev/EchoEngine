@@ -26,6 +26,8 @@ public:
     void SetAO(Texture t);
     void SetRough(Texture t);
     void SetMetal(Texture t);
+    void SetAlphaMask(Texture t);
+    void EnsureDiffuseRGBA();
 
     void PackARM(Texture AO, Texture rough, Texture metal);
 
