@@ -24,6 +24,19 @@ struct GBuffer
 	uint FBO;
 
 	FullscreenQuad quad;
+    
+};
+
+struct DrawCmd
+{
+    
+    MeshResource* Mesh;
+    uint32_t SubMeshIndex;
+    glm::mat4 Model;
+    std::shared_ptr<Material> Material;
+    
+    float depth;
+
 };
 
 class Renderer
@@ -38,7 +51,7 @@ public:
     void BeginFrame();
     void EndFrame();
 
-    void DrawScene(const SceneData& s);
+    void DrawScene();
     void Resize(int nWidth, int nHeight);
     void ReloadShaders();
 
@@ -46,7 +59,13 @@ public:
     void ClearCache();
 
     RenderTexture* GetGPUTexture(const Texture* cpuTexture);
+
+    void SetScene(SceneData& s) { m_Scene = &s; }
+    SceneData* GetScene(void) { return m_Scene; }
+
 private:
+    SceneData* m_Scene;
+    
     GBuffer m_GBuffer;
     uint m_SSAOFBO, m_SSAOBlurFBO, m_SSAONoise;
     uint m_SSAOColorBuffer, m_SSAOBlurBuffer;
@@ -64,7 +83,11 @@ private:
 
     std::vector<glm::vec3> m_SSAOKernel;
 
+    std::vector<DrawCmd> m_OpaqueQueue;
+    std::vector<DrawCmd> m_TransparentQueue;
+
     std::unordered_map<const Mesh*, std::unique_ptr<MeshResource>> m_MeshCache;
     std::unordered_map<const Texture*, std::unique_ptr<RenderTexture>> m_TextureCache;
 
+    void BindMaterial(std::shared_ptr<Material> mat);
 };

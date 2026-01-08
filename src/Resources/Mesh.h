@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Types.h"
+
 #include <glm/glm.hpp>
 #include <vector>
 #include <string>
@@ -19,11 +21,14 @@ struct Vertex
 
 struct SubMesh
 {
-    unsigned int BaseIndex = 0;
-    unsigned int IndexCount = 0;
-    unsigned int MaterialIndex = 0;
+    uint BaseIndex = 0;
+    uint IndexCount = 0;
+    uint MaterialIndex = 0;
 
 	std::string NodeName; 
+    
+    float LocalRadius;
+    glm::vec3 LocalCenter;
 };
 
 class Mesh
@@ -43,5 +48,6 @@ public:
 
     void RecalculateNormals();
     void RecalculateTangents();
-
+    
+    void CalculateSubMeshBoundsAndCenter(SubMesh& sm, const Mesh& mesh);
 };

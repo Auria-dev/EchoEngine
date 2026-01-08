@@ -1,5 +1,21 @@
 #include "Mesh.h"
 
+void Mesh::CalculateSubMeshBoundsAndCenter(SubMesh& sm, const Mesh& mesh)
+{
+    glm::vec3 min(FLT_MAX), max(-FLT_MAX);
+
+    for (uint i = 0; i < sm.IndexCount; ++i)
+    {
+        uint index = mesh.Indices[sm.BaseIndex + i];
+        const glm::vec3& p = mesh.Vertices[index].Position;
+        min = glm::min(min, p);
+        max = glm::max(max, p);
+    }
+
+    sm.LocalCenter = (min + max) * 0.5f;
+    sm.LocalRadius = glm::length(max - sm.LocalCenter);
+}
+
 Mesh::Mesh() {}
 Mesh::~Mesh() {}
 

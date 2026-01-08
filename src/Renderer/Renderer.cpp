@@ -391,7 +391,7 @@ void Renderer::Init(int width, int height)
 
 void Renderer::Shutdown() { }
 
-static void DebugTextureItem(const char* label, uint32_t texID, float width = 128.0f, float height = 128.0f)
+static void DebugTextureItem(const char* label, uint32_t texID, float width = 128.0f, float height = 72.0f)
 {
     ImGui::BeginGroup();
     ImGui::Text("%s", label);
@@ -429,7 +429,7 @@ void Renderer::OnImGuiRender()
     {
         DebugTextureItem("SSAO Raw", m_SSAOColorBuffer);
         DebugTextureItem("SSAO Blur", m_SSAOBlurBuffer);
-        DebugTextureItem("BRDF LUT", m_BRDFLUTTexture);
+        DebugTextureItem("BRDF LUT", m_BRDFLUTTexture, 128,128);
     }
 
     ImGui::NewLine();
@@ -442,7 +442,7 @@ void Renderer::OnImGuiRender()
             uint32_t id = gpuTex->GetID(); 
             std::string label = "Tex " + std::to_string(count++);
             
-            DebugTextureItem(label.c_str(), id);
+            DebugTextureItem(label.c_str(), id, 128,128);
         }
         
         if (m_TextureCache.empty())
@@ -451,6 +451,11 @@ void Renderer::OnImGuiRender()
         }
     }
     
+    ImGui::NewLine();
+
+    std::string DrawCmdCount = "Opaque: " + std::to_string(m_OpaqueQueue.size()) + " Transparent: " + std::to_string(m_TransparentQueue.size());
+    ImGui::Text("%s",DrawCmdCount.c_str());
+
     ImGui::End();
 }
 
@@ -461,23 +466,34 @@ void Renderer::BeginFrame()
 	glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    m_OpaqueQueue.clear();
+    m_TransparentQueue.clear();
 }
 
 void Renderer::EndFrame() { }
 
-void Renderer::DrawScene(const SceneData& scene)
+void Renderer::DrawScene()
 {
+    for (Entity* e : m_Scene->Entities)
+    {
+        DrawEntity(*e, *m_GBufferShader);
+    }
+
     // geometry pass
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
 
     m_GBufferShader->Bind();
-    m_GBufferShader->SetUniformMat4f("uView", scene.activeCamera->GetViewMatrix());
-    m_GBufferShader->SetUniformMat4f("uProjection", scene.activeCamera->GetProjectionMatrix());
+    m_GBufferShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
+    m_GBufferShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
 
-    for (Entity* e : scene.Entities)
+    for (const DrawCmd& cmd : m_OpaqueQueue)
     {
-        DrawEntity(*e, *m_GBufferShader);
+        m_GBufferShader->SetUniformMat4f("uModel", cmd.Model);
+        BindMaterial(cmd.Material);
+        cmd.Mesh->Bind();
+        cmd.Mesh->DrawSubMesh(cmd.SubMeshIndex);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -486,7 +502,7 @@ void Renderer::DrawScene(const SceneData& scene)
     glBindFramebuffer(GL_FRAMEBUFFER, m_SSAOFBO);
     glClear(GL_COLOR_BUFFER_BIT);
     m_SSAOShader->Bind();
-    m_SSAOShader->SetUniformMat4f("uProjection", scene.activeCamera->GetProjectionMatrix());
+    m_SSAOShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
     m_SSAOShader->SetUniform2f("uResolution", m_Width, m_Height);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Position);
@@ -518,7 +534,7 @@ void Renderer::DrawScene(const SceneData& scene)
     int pointLightCount = 0;
     int spotLightCount = 0;
 
-    for (const Light* light : scene.Lights)
+    for (const Light* light : m_Scene->Lights)
     {
         switch (light->GetType())
         {
@@ -527,7 +543,7 @@ void Renderer::DrawScene(const SceneData& scene)
                 const DirectionalLight* dLight = static_cast<const DirectionalLight*>(light);
                 
                 std::string base = "uDirLights[" + std::to_string(dirLightCount) + "]";
-                glm::vec4 dir = scene.activeCamera->GetViewMatrix() * glm::vec4(dLight->Direction, 0.0f);
+                glm::vec4 dir = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(dLight->Direction, 0.0f);
 
                 m_LightingShader->SetUniform3f(base + ".direction", dir.x, dir.y, dir.z);
                 m_LightingShader->SetUniform3f(base + ".color",     dLight->Color.x, dLight->Color.y, dLight->Color.z);
@@ -541,7 +557,7 @@ void Renderer::DrawScene(const SceneData& scene)
                 const PointLight* pLight = static_cast<const PointLight*>(light);
                 
                 std::string base = "uPointLights[" + std::to_string(pointLightCount) + "]";
-                glm::vec4 pos = scene.activeCamera->GetViewMatrix() * glm::vec4(pLight->Position, 1.0f);
+                glm::vec4 pos = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(pLight->Position, 1.0f);
 
                 m_LightingShader->SetUniform3f(base + ".position",  pos.x,  pos.y, pos.z);
                 m_LightingShader->SetUniform3f(base + ".color",     pLight->Color.x, pLight->Color.y, pLight->Color.z);
@@ -559,8 +575,8 @@ void Renderer::DrawScene(const SceneData& scene)
                 const SpotLight* sLight = static_cast<const SpotLight*>(light);
                 
                 std::string base = "uSpotLights[" + std::to_string(spotLightCount) + "]";
-                glm::vec4 pos = scene.activeCamera->GetViewMatrix() * glm::vec4(sLight->Position, 1.0f);
-                glm::vec4 dir = scene.activeCamera->GetViewMatrix() * glm::vec4(sLight->Direction, 0.0f);
+                glm::vec4 pos = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(sLight->Position, 1.0f);
+                glm::vec4 dir = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(sLight->Direction, 0.0f);
 
                 m_LightingShader->SetUniform3f(base + ".position",  pos.x,  pos.y, pos.z);
                 m_LightingShader->SetUniform3f(base + ".direction", dir.x,  dir.y, dir.z);
@@ -578,7 +594,7 @@ void Renderer::DrawScene(const SceneData& scene)
     m_LightingShader->SetUniform1i("uDirLightCount", dirLightCount);
     m_LightingShader->SetUniform1i("uPointLightCount", pointLightCount);
     m_LightingShader->SetUniform1i("uSpotLightCount", spotLightCount);
-    m_LightingShader->SetUniformMat4f("uInverseView", glm::inverse(scene.activeCamera->GetViewMatrix()));
+    m_LightingShader->SetUniformMat4f("uInverseView", glm::inverse(m_Scene->activeCamera->GetViewMatrix()));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Position);
@@ -610,8 +626,8 @@ void Renderer::DrawScene(const SceneData& scene)
 
     glDepthFunc(GL_LEQUAL);
     m_SkyboxShader->Bind();
-    m_SkyboxShader->SetUniformMat4f("uView", scene.activeCamera->GetViewMatrix());
-    m_SkyboxShader->SetUniformMat4f("uProj", scene.activeCamera->GetProjectionMatrix());
+    m_SkyboxShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
+    m_SkyboxShader->SetUniformMat4f("uProj", m_Scene->activeCamera->GetProjectionMatrix());
     glActiveTexture(GL_TEXTURE0);
     // glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_EnvCubemap);
@@ -676,33 +692,28 @@ void Renderer::DrawEntity(const Entity& entity, Shader& shader)
     MeshResource* mesh = m_MeshCache[entity.meshAsset.get()].get();
     mesh->Bind();
 
-    const auto& subMeshes = entity.meshAsset->SubMeshes;
+    const std::vector<SubMesh>& subMeshes = entity.meshAsset->SubMeshes;
     for (int i = 0; i < subMeshes.size(); ++i)
     {
-        const SubMesh& subMesh = subMeshes[i];        
+        const SubMesh& subMesh = subMeshes[i];
+        
         if (subMesh.MaterialIndex < entity.materials.size())
         {
-            auto cpuMat = entity.materials[subMesh.MaterialIndex];
-            if (cpuMat->DiffuseTexture)
-            {
-                RenderTexture* tex = GetGPUTexture(cpuMat->DiffuseTexture.get());
-                tex->Bind(0); 
-            }
+            Material* mat = entity.materials[subMesh.MaterialIndex].get();
+
+            DrawCmd item;
+            item.Mesh = mesh;
+            item.Material = entity.materials[subMesh.MaterialIndex];
+            item.Model = entity.transform;
+            item.SubMeshIndex = i;
             
-            if (cpuMat->NormalTexture)
-            {
-                RenderTexture* tex = GetGPUTexture(cpuMat->NormalTexture.get());
-                tex->Bind(1);
-            }
-
-            if (cpuMat->ARMTexture)
-            {
-                RenderTexture* tex = GetGPUTexture(cpuMat->ARMTexture.get());
-                tex->Bind(2);
-            }
+            glm::vec4 worldCenter = item.Model * glm::vec4(subMesh.LocalCenter, 1.0f);
+            glm::vec4 viewCenter  = m_Scene->activeCamera->GetViewMatrix() * worldCenter;
+            item.depth = -viewCenter.z;
+            
+            if (mat->Translucent) m_TransparentQueue.push_back(item);
+            else                  m_OpaqueQueue.push_back(item);
         }
-
-        mesh->DrawSubMesh(i);
     }
 }
 
@@ -720,4 +731,11 @@ void Renderer::ClearCache()
 {
     m_MeshCache.clear();
     m_TextureCache.clear();
+}
+
+void Renderer::BindMaterial(std::shared_ptr<Material> mat)
+{
+    if (mat->DiffuseTexture) GetGPUTexture(mat->DiffuseTexture.get())->Bind(0);
+    if (mat->NormalTexture) GetGPUTexture(mat->NormalTexture.get())->Bind(1);
+    if (mat->ARMTexture) GetGPUTexture(mat->ARMTexture.get())->Bind(2);
 }

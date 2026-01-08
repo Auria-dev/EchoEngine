@@ -9,6 +9,9 @@ class Material
 {
 
 public:
+    bool Translucent;
+    float Dissolve;
+
     std::unique_ptr<Texture> DiffuseTexture;
     std::unique_ptr<Texture> NormalTexture;
     std::unique_ptr<Texture> ARMTexture;

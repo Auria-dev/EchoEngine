@@ -141,6 +141,8 @@ void OBJLoader::ParseMTL(const std::string& filepath, std::vector<std::shared_pt
             activeMat = materials[matMap[name]];
             activeMat->SetNormal(Texture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f)));
             activeMat->SetRough(Texture(glm::vec4(1.0f, 1.0f, 0.0f, 1.0f)));
+            activeMat->Dissolve = 1.0;
+            activeMat->Translucent = false;
         }
         else if (activeMat) {
             if (strncmp(p, "map_Kd", 6) == 0)
@@ -175,6 +177,15 @@ void OBJLoader::ParseMTL(const std::string& filepath, std::vector<std::shared_pt
             else if (strncmp(p, "Tr", 2) == 0)
             {
                 // handle transparency
+            }
+            else if (strncmp(p, "d ", 2) == 0)
+            {
+                p+=1;
+                float d = ParseFloat(p, end);
+                if (d!=1.0){
+                    activeMat->Dissolve = d;
+                    activeMat->Translucent = true;
+                }
             }
         }
     }
@@ -416,6 +427,7 @@ LoadResult OBJLoader::Load(const std::string& filepath)
         );
 
         result.mesh->SubMeshes.push_back(sm);
+        result.mesh->CalculateSubMeshBoundsAndCenter(sm, *result.mesh);
     }
 
     result.mesh->RecalculateNormals();
