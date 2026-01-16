@@ -20,7 +20,9 @@ void Renderer::Init(int width, int height)
     m_IrradianceShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/irradiance_convolution.frag");
     m_PrefilterShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/prefilter.frag");
     m_BrdfShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/brdf.frag");
-
+    
+    m_VolumetricShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/volumetric.frag");
+    
     // glEnable(GL_BLEND);
 	// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -185,7 +187,8 @@ void Renderer::Init(int width, int height)
     stbi_set_flip_vertically_on_load(true);
     int sb_width, sb_height, sb_channels;
     // float* skyboxData = stbi_loadf(("assets/textures/kloofendal_48d_partly_cloudy.hdr"), &sb_width, &sb_height, &sb_channels, 0);
-    float* skyboxData = stbi_loadf(("assets/textures/plains_sunset_4k.hdr"), &sb_width, &sb_height, &sb_channels, 0);
+    // float* skyboxData = stbi_loadf(("assets/textures/plains_sunset_4k.hdr"), &sb_width, &sb_height, &sb_channels, 0);
+    float* skyboxData = stbi_loadf(("assets/textures/citrus_orchard_road_puresky_2k.hdr"), &sb_width, &sb_height, &sb_channels, 0);
     if (skyboxData)
     {
         glGenTextures(1, &m_SkyboxTexture);
@@ -395,6 +398,9 @@ void Renderer::Init(int width, int height)
     m_ForwardShader->SetUniform1i("uAlbedo", 0);
     m_ForwardShader->SetUniform1i("uNormal", 1);
     m_ForwardShader->SetUniform1i("uARM", 2);
+
+    m_VolumetricShader->Bind();
+    m_VolumetricShader->SetUniform1i("gDepth", 0);
 }
 
 void Renderer::Shutdown() { }
@@ -544,6 +550,11 @@ void Renderer::DrawScene()
     int pointLightCount = 0;
     int spotLightCount = 0;
 
+    DirectionalLight* mainLight = new DirectionalLight();
+    mainLight->Direction = glm::vec3(-9.878, -0.1, -0.468);
+    mainLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
+    mainLight->Intensity = 1.0f;
+
     for (const Light* light : m_Scene->Lights)
     {
         switch (light->GetType())
@@ -558,7 +569,8 @@ void Renderer::DrawScene()
                 m_LightingShader->SetUniform3f(base + ".direction", dir.x, dir.y, dir.z);
                 m_LightingShader->SetUniform3f(base + ".color",     dLight->Color.x, dLight->Color.y, dLight->Color.z);
                 m_LightingShader->SetUniform1f(base + ".intensity", dLight->Intensity);
-
+                
+                if (dirLightCount == 0) mainLight = const_cast<DirectionalLight*>(dLight);
                 dirLightCount++;
             } break;
 
@@ -624,7 +636,7 @@ void Renderer::DrawScene()
     glBindTexture(GL_TEXTURE_2D, m_BRDFLUTTexture);
 
     m_GBuffer.quad.Draw();
-
+    
     // forward pass
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_GBuffer.FBO);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -669,6 +681,29 @@ void Renderer::DrawScene()
     }
     
     glDepthMask(GL_TRUE);
+
+    
+    glm::mat4 proj = m_Scene->activeCamera->GetProjectionMatrix();
+    glm::mat4 view = m_Scene->activeCamera->GetViewMatrix();
+    glm::mat4 invViewProj = glm::inverse(proj * view);
+
+    m_VolumetricShader->Bind();
+
+    glm::vec3 camPos = m_Scene->activeCamera->GetPosition();
+    m_VolumetricShader->SetUniform3f("viewPos", camPos.x, camPos.y, camPos.z);
+    m_VolumetricShader->SetUniformMat4f("uInvViewProj", invViewProj);
+
+    m_VolumetricShader->SetUniform3f("uLightDir", mainLight->Direction.x, mainLight->Direction.y, mainLight->Direction.z);
+    m_VolumetricShader->SetUniform3f("uLightColor", mainLight->Color.x, mainLight->Color.y, mainLight->Color.z);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_GBuffer.Depth);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);    
+    m_GBuffer.quad.Draw();
+    glDisable(GL_BLEND);
+
 }
 
 void Renderer::Resize(int nWidth, int nHeight)
@@ -709,6 +744,7 @@ void Renderer::ReloadShaders()
     m_IrradianceShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/irradiance_convolution.frag");
     m_PrefilterShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/prefilter.frag");
     m_BrdfShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/brdf.frag");
+    m_VolumetricShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/volumetric.frag");
 }
 
 void Renderer::DrawEntity(const Entity& entity, Shader& shader)

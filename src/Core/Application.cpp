@@ -72,56 +72,78 @@ Application::Application()
 
         
     ImGuiStyle * style = &ImGui::GetStyle();
+    ImVec4* colors = style->Colors;
 
-    // colors
-    style->Colors[ImGuiCol_Text]                  = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
-    style->Colors[ImGuiCol_TextDisabled]          = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-    style->Colors[ImGuiCol_WindowBg]              = ImVec4(0.11f, 0.11f, 0.12f, 1.00f);
-    style->Colors[ImGuiCol_ChildBg]               = ImVec4(0.12f, 0.12f, 0.13f, 1.00f);
-    style->Colors[ImGuiCol_PopupBg]               = ImVec4(0.14f, 0.14f, 0.15f, 1.00f);
-    style->Colors[ImGuiCol_Border]                = ImVec4(0.30f, 0.30f, 0.32f, 1.00f);
-    style->Colors[ImGuiCol_BorderShadow]          = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    style->Colors[ImGuiCol_FrameBg]               = ImVec4(0.18f, 0.18f, 0.20f, 1.00f);
-    style->Colors[ImGuiCol_FrameBgHovered]        = ImVec4(0.25f, 0.25f, 0.27f, 1.00f);
-    style->Colors[ImGuiCol_FrameBgActive]         = ImVec4(0.28f, 0.28f, 0.30f, 1.00f);
-    style->Colors[ImGuiCol_TitleBg]               = ImVec4(0.13f, 0.13f, 0.14f, 1.00f);
-    style->Colors[ImGuiCol_TitleBgActive]         = ImVec4(0.16f, 0.16f, 0.18f, 1.00f);
-    style->Colors[ImGuiCol_TitleBgCollapsed]      = ImVec4(0.10f, 0.10f, 0.11f, 0.90f);
-    style->Colors[ImGuiCol_MenuBarBg]             = ImVec4(0.15f, 0.15f, 0.16f, 1.00f);
-    style->Colors[ImGuiCol_ScrollbarBg]           = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    style->Colors[ImGuiCol_ScrollbarGrab]         = ImVec4(0.35f, 0.35f, 0.38f, 0.80f);
-    style->Colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4(0.45f, 0.45f, 0.50f, 0.80f);
-    style->Colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4(0.55f, 0.55f, 0.60f, 1.00f);
-    style->Colors[ImGuiCol_CheckMark]             = ImVec4(0.33f, 0.60f, 0.98f, 1.00f);
-    style->Colors[ImGuiCol_SliderGrab]            = ImVec4(0.35f, 0.60f, 0.98f, 0.85f);
-    style->Colors[ImGuiCol_SliderGrabActive]      = ImVec4(0.33f, 0.70f, 1.00f, 1.00f);
-    style->Colors[ImGuiCol_Button]                = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
-    style->Colors[ImGuiCol_ButtonHovered]         = ImVec4(0.30f, 0.30f, 0.33f, 1.00f);
-    style->Colors[ImGuiCol_ButtonActive]          = ImVec4(0.40f, 0.40f, 0.45f, 1.00f);
-    style->Colors[ImGuiCol_Header]                = ImVec4(0.25f, 0.25f, 0.27f, 1.00f);
-    style->Colors[ImGuiCol_HeaderHovered]         = ImVec4(0.33f, 0.33f, 0.37f, 1.00f);
-    style->Colors[ImGuiCol_HeaderActive]          = ImVec4(0.45f, 0.45f, 0.50f, 1.00f);
-    style->Colors[ImGuiCol_ResizeGrip]            = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
-    style->Colors[ImGuiCol_ResizeGripHovered]     = ImVec4(0.35f, 0.35f, 0.38f, 1.00f);
-    style->Colors[ImGuiCol_ResizeGripActive]      = ImVec4(0.50f, 0.50f, 0.55f, 1.00f);
-    style->Colors[ImGuiCol_Tab]                   = ImVec4(0.15f, 0.15f, 0.16f, 1.00f);
-    style->Colors[ImGuiCol_TabHovered]            = ImVec4(0.28f, 0.28f, 0.32f, 1.00f);
-    style->Colors[ImGuiCol_TabActive]             = ImVec4(0.35f, 0.35f, 0.40f, 1.00f);
-    style->Colors[ImGuiCol_TabUnfocused]          = ImVec4(0.12f, 0.12f, 0.13f, 1.00f);
-    style->Colors[ImGuiCol_TabUnfocusedActive]    = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
-    style->Colors[ImGuiCol_PlotLines]             = ImVec4(0.33f, 0.60f, 0.98f, 1.00f);
-    style->Colors[ImGuiCol_PlotLinesHovered]      = ImVec4(0.50f, 0.75f, 1.00f, 1.00f);
-    style->Colors[ImGuiCol_PlotHistogram]         = ImVec4(0.33f, 0.60f, 0.98f, 1.00f);
-    style->Colors[ImGuiCol_PlotHistogramHovered]  = ImVec4(0.50f, 0.75f, 1.00f, 1.00f);
-    style->Colors[ImGuiCol_TextSelectedBg]        = ImVec4(0.25f, 0.50f, 0.85f, 0.40f);
-    style->Colors[ImGuiCol_DockingPreview]        = ImVec4(0.33f, 0.60f, 0.98f, 0.28f);
-    style->Colors[ImGuiCol_NavHighlight]          = ImVec4(0.33f, 0.60f, 0.98f, 0.80f);
-    style->Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.33f, 0.60f, 0.98f, 0.70f);
-    style->Colors[ImGuiCol_NavWindowingDimBg]     = ImVec4(0.00f, 0.00f, 0.00f, 0.60f);
-    style->Colors[ImGuiCol_ModalWindowDimBg]      = ImVec4(0.00f, 0.00f, 0.00f, 0.60f);
-    style->Colors[ImGuiCol_PlotLines]             = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
-    style->Colors[ImGuiCol_PlotLines]             = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
-    style->Colors[ImGuiCol_PlotLinesHovered]      = ImVec4(0.95f, 0.15f, 0.15f, 1.00f);
+    // Color Palette Definitions (Mountain)
+    // ------------------------------------
+    // Black        #0f0f0f -> 0.06f, 0.06f, 0.06f
+    // Black2       #181818 -> 0.09f, 0.09f, 0.09f
+    // OneBg        #191919 -> 0.10f, 0.10f, 0.10f
+    // OneBg2       #222222 -> 0.13f, 0.13f, 0.13f
+    // OneBg3       #2a2a2a -> 0.16f, 0.16f, 0.16f
+    // Grey         #373737 -> 0.22f, 0.22f, 0.22f
+    // LightGrey    #535353 -> 0.33f, 0.33f, 0.33f
+    // White        #F0f0f0 -> 0.94f, 0.94f, 0.94f
+    // Green        #8aac8b -> 0.54f, 0.67f, 0.55f (Primary Accent)
+    // VibrantGreen #99bb9a -> 0.60f, 0.73f, 0.60f
+    // Line         #242424 -> 0.14f, 0.14f, 0.14f
+    // NordBlue     #8F8AAC -> 0.56f, 0.54f, 0.67f (Selection)
+
+    colors[ImGuiCol_Text]                   = ImVec4(0.94f, 0.94f, 0.94f, 1.00f); // White
+    colors[ImGuiCol_TextDisabled]           = ImVec4(0.33f, 0.33f, 0.33f, 1.00f); // Light Grey
+    colors[ImGuiCol_WindowBg]               = ImVec4(0.06f, 0.06f, 0.06f, 1.00f); // Black
+    colors[ImGuiCol_ChildBg]                = ImVec4(0.09f, 0.09f, 0.09f, 1.00f); // Black2
+    colors[ImGuiCol_PopupBg]                = ImVec4(0.10f, 0.10f, 0.10f, 1.00f); // OneBg
+    colors[ImGuiCol_Border]                 = ImVec4(0.14f, 0.14f, 0.14f, 1.00f); // Line
+    colors[ImGuiCol_BorderShadow]           = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_FrameBg]                = ImVec4(0.10f, 0.10f, 0.10f, 1.00f); // OneBg
+    colors[ImGuiCol_FrameBgHovered]         = ImVec4(0.13f, 0.13f, 0.13f, 1.00f); // OneBg2
+    colors[ImGuiCol_FrameBgActive]          = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // OneBg3
+    colors[ImGuiCol_TitleBg]                = ImVec4(0.06f, 0.06f, 0.06f, 1.00f); // Black
+    colors[ImGuiCol_TitleBgActive]          = ImVec4(0.09f, 0.09f, 0.09f, 1.00f); // Black2
+    colors[ImGuiCol_TitleBgCollapsed]       = ImVec4(0.06f, 0.06f, 0.06f, 1.00f); // Black
+    colors[ImGuiCol_MenuBarBg]              = ImVec4(0.10f, 0.10f, 0.10f, 1.00f); // OneBg
+    colors[ImGuiCol_ScrollbarBg]            = ImVec4(0.06f, 0.06f, 0.06f, 1.00f); // Black
+    colors[ImGuiCol_ScrollbarGrab]          = ImVec4(0.22f, 0.22f, 0.22f, 1.00f); // Grey
+    colors[ImGuiCol_ScrollbarGrabHovered]   = ImVec4(0.33f, 0.33f, 0.33f, 1.00f); // Light Grey
+    colors[ImGuiCol_ScrollbarGrabActive]    = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_CheckMark]              = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_SliderGrab]             = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_SliderGrabActive]       = ImVec4(0.60f, 0.73f, 0.60f, 1.00f); // Vibrant Green
+    colors[ImGuiCol_Button]                 = ImVec4(0.13f, 0.13f, 0.13f, 1.00f); // OneBg2
+    colors[ImGuiCol_ButtonHovered]          = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // OneBg3
+    colors[ImGuiCol_ButtonActive]           = ImVec4(0.22f, 0.22f, 0.22f, 1.00f); // Grey
+    colors[ImGuiCol_Header]                 = ImVec4(0.13f, 0.13f, 0.13f, 1.00f); // OneBg2
+    colors[ImGuiCol_HeaderHovered]          = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // OneBg3
+    colors[ImGuiCol_HeaderActive]           = ImVec4(0.22f, 0.22f, 0.22f, 1.00f); // Grey
+    colors[ImGuiCol_Separator]              = ImVec4(0.14f, 0.14f, 0.14f, 1.00f); // Line
+    colors[ImGuiCol_SeparatorHovered]       = ImVec4(0.22f, 0.22f, 0.22f, 1.00f); // Grey
+    colors[ImGuiCol_SeparatorActive]        = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_ResizeGrip]             = ImVec4(0.13f, 0.13f, 0.13f, 1.00f); // OneBg2
+    colors[ImGuiCol_ResizeGripHovered]      = ImVec4(0.22f, 0.22f, 0.22f, 1.00f); // Grey
+    colors[ImGuiCol_ResizeGripActive]       = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_Tab]                    = ImVec4(0.09f, 0.09f, 0.09f, 1.00f); // Black2
+    colors[ImGuiCol_TabHovered]             = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // OneBg3
+    colors[ImGuiCol_TabActive]              = ImVec4(0.13f, 0.13f, 0.13f, 1.00f); // OneBg2
+    colors[ImGuiCol_TabUnfocused]           = ImVec4(0.09f, 0.09f, 0.09f, 1.00f); // Black2
+    colors[ImGuiCol_TabUnfocusedActive]     = ImVec4(0.13f, 0.13f, 0.13f, 1.00f); // OneBg2
+    colors[ImGuiCol_PlotLines]              = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_PlotLinesHovered]       = ImVec4(0.60f, 0.73f, 0.60f, 1.00f); // Vibrant Green
+    colors[ImGuiCol_PlotHistogram]          = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_PlotHistogramHovered]   = ImVec4(0.60f, 0.73f, 0.60f, 1.00f); // Vibrant Green
+    colors[ImGuiCol_TableHeaderBg]          = ImVec4(0.13f, 0.13f, 0.13f, 1.00f); // OneBg2
+    colors[ImGuiCol_TableBorderStrong]      = ImVec4(0.14f, 0.14f, 0.14f, 1.00f); // Line
+    colors[ImGuiCol_TableBorderLight]       = ImVec4(0.14f, 0.14f, 0.14f, 1.00f); // Line
+    colors[ImGuiCol_TableRowBg]             = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_TableRowBgAlt]          = ImVec4(1.00f, 1.00f, 1.00f, 0.06f);
+    colors[ImGuiCol_TextSelectedBg]         = ImVec4(0.56f, 0.54f, 0.67f, 0.35f); // Nord Blue (Alpha)
+    colors[ImGuiCol_DragDropTarget]         = ImVec4(0.54f, 0.67f, 0.55f, 0.90f); // Green
+    colors[ImGuiCol_NavHighlight]           = ImVec4(0.54f, 0.67f, 0.55f, 1.00f); // Green
+    colors[ImGuiCol_NavWindowingHighlight]  = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+    colors[ImGuiCol_NavWindowingDimBg]      = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
+    colors[ImGuiCol_ModalWindowDimBg]       = ImVec4(0.00f, 0.00f, 0.00f, 0.35f);
+    colors[ImGuiCol_DockingPreview]      = ImVec4(0.54f, 0.67f, 0.55f, 0.70f); // Green
+    colors[ImGuiCol_DockingEmptyBg]      = ImVec4(0.06f, 0.06f, 0.06f, 1.00f); // Black
 
     // rounding & spacing
     style->FrameRounding        = 5.0f;
@@ -146,7 +168,6 @@ Application::Application()
     style->TabBorderSize        = 0.0f;
     style->SeparatorTextBorderSize = 1.0f;
     style->FrameBorderSize = 0.0f;
-
     
     InputManager::GetInstance().BindAction("Quit",         InputType::Key, GLFW_KEY_ESCAPE);
     InputManager::GetInstance().BindAction("ToggleCursor", InputType::Key, GLFW_KEY_ENTER);
@@ -198,7 +219,8 @@ void Application::Run()
     // m_Scene.Entities.push_back(&BistroInt);
 
     Camera t = Camera();
-    t.SetPosition(glm::vec3(6.3f, 4.0f, 4.0f));
+    t.SetPosition(glm::vec3(-10.3f, 15.0f, 4.0f));
+    t.SetYaw(330.0);
     
     // PointLight* pointlight = new PointLight();
     // pointlight->Position = glm::vec3(2.5f, 2.7f, -0.8f);
@@ -207,9 +229,9 @@ void Application::Run()
     // m_Scene.Lights.push_back(pointlight);
     
     DirectionalLight* dirLight = new DirectionalLight();
-    dirLight->Direction = glm::vec3(0.482f, -0.626, 0.613);
-    dirLight->Color = glm::vec3(0.9f, 0.6f, 0.34f);
-    dirLight->Intensity = 20.0f;
+    dirLight->Direction = glm::vec3(-9.878, -0.1, -0.468);
+    dirLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
+    dirLight->Intensity = 1.0f;
     m_Scene.Lights.push_back(dirLight);
 
     // glm::vec3 positions[4] = {
@@ -232,7 +254,6 @@ void Application::Run()
     m_Scene.activeCamera = &t;
     m_Scene.activeCamera->SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());
 
-    
     m_Renderer.SetScene(m_Scene);
     m_Renderer.Init(m_WWidth, m_WHeight);
     while (!glfwWindowShouldClose(m_Window))
@@ -259,7 +280,9 @@ void Application::Run()
         fpsHistoryIndex = (fpsHistoryIndex + 1) % 100;
         ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
         glm::vec3 camPos = m_Scene.activeCamera->GetPosition();
+        glm::vec3 camFront = m_Scene.activeCamera->GetFront();
         ImGui::Text("Position: (%.2f, %.2f, %.2f)", camPos.x, camPos.y, camPos.z);
+        ImGui::Text("Direction: (%.2f, %.2f, %.2f)", camFront.x, camFront.y, camFront.z);
         ImGui::Text("Pitch: %.2f, Yaw: %.2f", m_Scene.activeCamera->GetPitch(), m_Scene.activeCamera->GetYaw());
 
         ImGui::End();
