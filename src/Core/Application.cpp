@@ -221,6 +221,7 @@ void Application::Run()
     Camera t = Camera();
     t.SetPosition(glm::vec3(-10.3f, 15.0f, 4.0f));
     t.SetYaw(330.0);
+    t.m_MovementSpeed = 10.0f;
     
     // PointLight* pointlight = new PointLight();
     // pointlight->Position = glm::vec3(2.5f, 2.7f, -0.8f);
@@ -229,7 +230,7 @@ void Application::Run()
     // m_Scene.Lights.push_back(pointlight);
     
     DirectionalLight* dirLight = new DirectionalLight();
-    dirLight->Direction = glm::vec3(-9.878, -0.1, -0.468);
+    dirLight->Direction = glm::normalize(glm::vec3(-9.878, -0.1, -0.468));
     dirLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
     dirLight->Intensity = 1.0f;
     m_Scene.Lights.push_back(dirLight);
@@ -281,6 +282,7 @@ void Application::Run()
         ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
         glm::vec3 camPos = m_Scene.activeCamera->GetPosition();
         glm::vec3 camFront = m_Scene.activeCamera->GetFront();
+        ImGui::DragFloat("Move speed", &m_Scene.activeCamera->m_MovementSpeed, 0.1f, 0.01f, 50.0f);
         ImGui::Text("Position: (%.2f, %.2f, %.2f)", camPos.x, camPos.y, camPos.z);
         ImGui::Text("Direction: (%.2f, %.2f, %.2f)", camFront.x, camFront.y, camFront.z);
         ImGui::Text("Pitch: %.2f, Yaw: %.2f", m_Scene.activeCamera->GetPitch(), m_Scene.activeCamera->GetYaw());

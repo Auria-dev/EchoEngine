@@ -34,6 +34,7 @@ struct DrawCmd
     uint32_t SubMeshIndex;
     glm::mat4 Model;
     std::shared_ptr<Material> Material;
+    bool shadowCasting;
     
     float depth;
 
@@ -56,7 +57,7 @@ public:
     void Resize(int nWidth, int nHeight);
     void ReloadShaders();
 
-    void DrawEntity(const Entity& entity, Shader& shader);
+    void SubmitDrawCmd(const Entity& entity, Shader& shader);
     void ClearCache();
 
     RenderTexture* GetGPUTexture(const Texture* cpuTexture);
@@ -70,7 +71,7 @@ private:
     GBuffer m_GBuffer;
     uint m_SSAOFBO, m_SSAOBlurFBO, m_SSAONoise;
     uint m_SSAOColorBuffer, m_SSAOBlurBuffer;
-    uint m_DepthMapFBO, m_DepthMap, m_ShadowWidth, m_ShadowHeight;
+    uint m_ShadowMapFBO, m_ShadowMap, m_ShadowWidth, m_ShadowHeight;
     uint m_SkyboxTexture, m_IrradianceMap, m_EnvCubemap, m_SkyboxVAO, m_SkyboxVBO, m_CubeVAO, m_CubeVBO, m_CaptureFBO, m_CaptureRBO, m_PrefilterMap, m_BRDFLUTTexture;
     uint m_Width, m_Height;
     Shader* m_ForwardShader;
@@ -84,6 +85,12 @@ private:
     Shader* m_PrefilterShader;
     Shader* m_BrdfShader;
     Shader* m_VolumetricShader;
+    Shader* m_ShadowMapShader;
+    
+    float m_LightDistance;
+    glm::mat4 m_OrthoProj;
+    glm::mat4 m_LightView;
+    glm::mat4 m_LightProj;
 
     std::vector<glm::vec3> m_SSAOKernel;
 

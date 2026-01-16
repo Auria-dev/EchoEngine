@@ -3,6 +3,29 @@
 #include <random>
 #include <algorithm>
 
+GLenum glCheckError_(const char *file, int line)
+{
+    GLenum errorCode;
+    while ((errorCode = glGetError()) != GL_NO_ERROR)
+    {
+        std::string error;
+        switch (errorCode)
+        {
+            case GL_INVALID_ENUM:                  error = "INVALID_ENUM"; break;
+            case GL_INVALID_VALUE:                 error = "INVALID_VALUE"; break;
+            case GL_INVALID_OPERATION:             error = "INVALID_OPERATION"; break;
+            case GL_STACK_OVERFLOW:                error = "STACK_OVERFLOW"; break;
+            case GL_STACK_UNDERFLOW:               error = "STACK_UNDERFLOW"; break;
+            case GL_OUT_OF_MEMORY:                 error = "OUT_OF_MEMORY"; break;
+            case GL_INVALID_FRAMEBUFFER_OPERATION: error = "INVALID_FRAMEBUFFER_OPERATION"; break;
+        }
+        std::cout << error << " | " << file << " (" << line << ")" << std::endl;
+    }
+    return errorCode;
+}
+#define glCheckError() glCheckError_(__FILE__, __LINE__) 
+
+
 void Renderer::Init(int width, int height)
 {
     m_Width = width;
@@ -22,7 +45,9 @@ void Renderer::Init(int width, int height)
     m_BrdfShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/brdf.frag");
     
     m_VolumetricShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/volumetric.frag");
-    
+    m_ShadowMapShader = new Shader("assets/shaders/shadow_map.vert", "assets/shaders/shadow_map.frag");
+
+
     // glEnable(GL_BLEND);
 	// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -192,7 +217,7 @@ void Renderer::Init(int width, int height)
     if (skyboxData)
     {
         glGenTextures(1, &m_SkyboxTexture);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, m_SkyboxTexture);
+        glBindTexture(GL_TEXTURE_2D, m_SkyboxTexture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, sb_width, sb_height, 0, GL_RGB, GL_FLOAT, skyboxData);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -241,11 +266,14 @@ void Renderer::Init(int width, int height)
         glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f)) 
     };
 
+    glCheckError(); // no errors
+    glViewport(0, 0, cubemapResolution, cubemapResolution);
     m_EquirectangularToCubemapShader->Bind();
     m_EquirectangularToCubemapShader->SetUniform1i("equirectangularMap", 0);
     m_EquirectangularToCubemapShader->SetUniformMat4f("uProj", captureProjection);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_SkyboxTexture);
+    glCheckError(); // errors
 
     glViewport(0, 0, cubemapResolution, cubemapResolution);
     glBindFramebuffer(GL_FRAMEBUFFER, m_CaptureFBO);
@@ -342,7 +370,7 @@ void Renderer::Init(int width, int height)
             glBindVertexArray(0);
         }
     }
-
+    
     // generate BRDF LUT texture
     int brdfLUTResolution = 512;
     glGenTextures(1, &m_BRDFLUTTexture);
@@ -366,8 +394,30 @@ void Renderer::Init(int width, int height)
     m_BrdfShader->Bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     m_GBuffer.quad.Draw();
+    
+    glGenFramebuffers(1, &m_ShadowMapFBO);
+    m_ShadowWidth = 2048;
+    m_ShadowHeight = 2048;
+    glGenTextures(1, &m_ShadowMap);
+    glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, m_ShadowWidth, m_ShadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float clampColor[] = {1.0, 1.0, 1.0, 1.0};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, clampColor);
 
+    glBindFramebuffer(GL_FRAMEBUFFER, m_ShadowMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_ShadowMap, 0);
+    glDrawBuffer(GL_NONE); // no color
+    glReadBuffer(GL_NONE); // no color
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    // todo: move this to its own shadowmap class
+    m_OrthoProj = glm::ortho(-35.0f, 35.0f, -35.0f, 35.0f, 0.1f, 75.0f);
+    m_LightView = glm::lookAt(glm::vec3(-2.0f, 6.0f, -1.0f), glm::vec3(0.0f), glm::vec3(0.0f,1.0f,0.0f));
+    m_LightProj = m_OrthoProj * m_LightView;
 
     m_LightingShader->Bind();
     m_LightingShader->SetUniform1i("gPosition", 0);
@@ -379,7 +429,7 @@ void Renderer::Init(int width, int height)
     m_LightingShader->SetUniform1i("irradianceMap", 5);
     m_LightingShader->SetUniform1i("prefilterMap", 6);
     m_LightingShader->SetUniform1i("brdfLUT", 7);
-
+    m_LightingShader->SetUniform1i("shadowMap", 8);
 
     m_SSAOShader->Bind();
     m_SSAOShader->SetUniform1i("gPosition", 0);
@@ -401,6 +451,7 @@ void Renderer::Init(int width, int height)
 
     m_VolumetricShader->Bind();
     m_VolumetricShader->SetUniform1i("gDepth", 0);
+    m_VolumetricShader->SetUniform1i("uShadowMap", 1);
 }
 
 void Renderer::Shutdown() { }
@@ -444,6 +495,7 @@ void Renderer::OnImGuiRender()
         DebugTextureItem("SSAO Raw", m_SSAOColorBuffer);
         DebugTextureItem("SSAO Blur", m_SSAOBlurBuffer);
         DebugTextureItem("BRDF LUT", m_BRDFLUTTexture, 128,128);
+        DebugTextureItem("Shadowmap", m_ShadowMap, 128,128);
     }
 
     ImGui::NewLine();
@@ -491,7 +543,7 @@ void Renderer::DrawScene()
 {
     for (Entity* e : m_Scene->Entities)
     {
-        DrawEntity(*e, *m_GBufferShader);
+        SubmitDrawCmd(*e, *m_GBufferShader);
     }
 
     // geometry pass
@@ -536,6 +588,49 @@ void Renderer::DrawScene()
     glBindTexture(GL_TEXTURE_2D, m_SSAOColorBuffer);
     m_GBuffer.quad.Draw();
 
+    
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // // shadowmap
+    DirectionalLight* mainLight = new DirectionalLight();
+    mainLight->Direction = glm::vec3(-9.878, -0.1, -0.468);
+    mainLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
+    mainLight->Intensity = 1.0f;
+
+    for (const Light* light : m_Scene->Lights) 
+    {
+        if (light->GetType() != Light::LightType::Directional) continue;
+        const DirectionalLight* dLight = static_cast<const DirectionalLight*>(light);
+        mainLight = const_cast<DirectionalLight*>(dLight);
+        break;
+    }
+    
+    glm::vec3 camPos = m_Scene->activeCamera->GetPosition();
+    
+    m_ShadowMapShader->Bind();
+    m_LightDistance = 50.0f;
+    glm::vec3 lightFocus = camPos;
+    m_LightView = glm::lookAt(lightFocus - glm::normalize(mainLight->Direction) * m_LightDistance, lightFocus, glm::vec3(0.0f, 1.0f, 0.0f));
+    m_LightProj = m_OrthoProj * m_LightView;
+    m_ShadowMapShader->SetUniformMat4f("uLightProj", m_LightProj);
+
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_CULL_FACE);
+    // glCullFace(GL_FRONT);
+    glViewport(0,0,m_ShadowWidth, m_ShadowHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_ShadowMapFBO);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    for (const DrawCmd& cmd : m_DeferredQueue)
+    {
+        if (!cmd.shadowCasting) continue;
+        m_ShadowMapShader->SetUniformMat4f("uModel", cmd.Model);
+        BindMaterial(cmd.Material);
+        cmd.Mesh->Bind();
+        cmd.Mesh->DrawSubMesh(cmd.SubMeshIndex);
+    }
+
+    glDisable(GL_CULL_FACE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // lighting pass
@@ -549,11 +644,6 @@ void Renderer::DrawScene()
     int dirLightCount = 0;
     int pointLightCount = 0;
     int spotLightCount = 0;
-
-    DirectionalLight* mainLight = new DirectionalLight();
-    mainLight->Direction = glm::vec3(-9.878, -0.1, -0.468);
-    mainLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
-    mainLight->Intensity = 1.0f;
 
     for (const Light* light : m_Scene->Lights)
     {
@@ -617,6 +707,7 @@ void Renderer::DrawScene()
     m_LightingShader->SetUniform1i("uPointLightCount", pointLightCount);
     m_LightingShader->SetUniform1i("uSpotLightCount", spotLightCount);
     m_LightingShader->SetUniformMat4f("uInverseView", glm::inverse(m_Scene->activeCamera->GetViewMatrix()));
+    m_LightingShader->SetUniformMat4f("uLightProj", m_LightProj);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Position);
@@ -634,6 +725,8 @@ void Renderer::DrawScene()
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_PrefilterMap);
     glActiveTexture(GL_TEXTURE7);
     glBindTexture(GL_TEXTURE_2D, m_BRDFLUTTexture);
+    glActiveTexture(GL_TEXTURE8);
+    glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
 
     m_GBuffer.quad.Draw();
     
@@ -681,7 +774,6 @@ void Renderer::DrawScene()
     }
     
     glDepthMask(GL_TRUE);
-
     
     glm::mat4 proj = m_Scene->activeCamera->GetProjectionMatrix();
     glm::mat4 view = m_Scene->activeCamera->GetViewMatrix();
@@ -689,21 +781,26 @@ void Renderer::DrawScene()
 
     m_VolumetricShader->Bind();
 
-    glm::vec3 camPos = m_Scene->activeCamera->GetPosition();
     m_VolumetricShader->SetUniform3f("viewPos", camPos.x, camPos.y, camPos.z);
     m_VolumetricShader->SetUniformMat4f("uInvViewProj", invViewProj);
-
+    
     m_VolumetricShader->SetUniform3f("uLightDir", mainLight->Direction.x, mainLight->Direction.y, mainLight->Direction.z);
     m_VolumetricShader->SetUniform3f("uLightColor", mainLight->Color.x, mainLight->Color.y, mainLight->Color.z);
     
+    m_VolumetricShader->SetUniformMat4f("uLightProj", m_LightProj);
+    
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Depth);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);    
     m_GBuffer.quad.Draw();
     glDisable(GL_BLEND);
 
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
 }
 
 void Renderer::Resize(int nWidth, int nHeight)
@@ -747,7 +844,7 @@ void Renderer::ReloadShaders()
     m_VolumetricShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/volumetric.frag");
 }
 
-void Renderer::DrawEntity(const Entity& entity, Shader& shader)
+void Renderer::SubmitDrawCmd(const Entity& entity, Shader& shader)
 {
     if (!entity.meshAsset) return;
 
@@ -772,6 +869,7 @@ void Renderer::DrawEntity(const Entity& entity, Shader& shader)
             Material* mat = entity.materials[subMesh.MaterialIndex].get();
 
             DrawCmd item;
+            item.shadowCasting = true;
             item.Mesh = mesh;
             item.Material = entity.materials[subMesh.MaterialIndex];
             item.Model = entity.transform;

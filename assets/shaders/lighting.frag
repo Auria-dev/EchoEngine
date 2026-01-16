@@ -12,6 +12,7 @@ uniform sampler2D gSSAO;
 uniform samplerCube irradianceMap;
 uniform samplerCube prefilterMap;
 uniform sampler2D brdfLUT;
+uniform sampler2D shadowMap;
 
 #define MAX_DIR_LIGHTS 4
 #define MAX_POINT_LIGHTS 16
@@ -52,6 +53,7 @@ uniform int uDirLightCount;
 uniform int uPointLightCount;
 uniform int uSpotLightCount;
 uniform mat4 uInverseView;
+uniform mat4 uLightProj;
 
 const float PI = 3.14159265359;
 
@@ -106,12 +108,39 @@ vec3 CalculatePBRLighting(vec3 L, vec3 V, vec3 N, vec3 radiance, vec3 albedo, fl
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+{
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+    
+    if(projCoords.z > 1.0) return 0.0;
+        
+    float bias = max(0.003 * (1.0 - dot(normal, lightDir)), 0.0003);
+    
+    float shadow = 0.0;
+    int sampleRadius = 5;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    for(int y = -sampleRadius; y <= sampleRadius; y++) {
+        for(int x = -sampleRadius; x <= sampleRadius; x++) {
+            float closestDepth = texture(shadowMap, projCoords.xy + vec2(x,y) * texelSize).r;
+            if (projCoords.z > closestDepth + bias)
+                shadow += 1.0f;
+        }    
+    }
+    shadow /= pow((sampleRadius*2+1), 2);
+    
+    return shadow;
+}
+
 void main() {
     vec3 fragPos = texture(gPosition, TexCoords).rgb;
     vec3 normal  = normalize(texture(gNormal, TexCoords).rgb);
     vec3 albedo  = pow(texture(gAlbedo, TexCoords).rgb, vec3(2.2));
     vec3 ARM     = texture(gARM, TexCoords).rgb;
     float SSAO   = texture(gSSAO, TexCoords).r;
+    
+    vec4 worldPos = uInverseView * vec4(fragPos, 1.0);
+    vec4 fragPosLightSpace = uLightProj * worldPos;
 
     float roughness = ARM.g;
     float metallic  = ARM.b;
@@ -125,10 +154,13 @@ void main() {
 
     vec3 Lo = vec3(0.0);
 
+    float shadow = -1.0;
     for(int i = 0; i < uDirLightCount; ++i) {
         vec3 L = normalize(-uDirLights[i].direction);
+        if (shadow == -1.0) shadow = ShadowCalculation(fragPosLightSpace, normal, L); 
         vec3 radiance = uDirLights[i].color * uDirLights[i].intensity;
-        Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
+        vec3 lightContribution = CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
+        Lo += (1.0 - shadow) * lightContribution;
     }
 
     for(int i = 0; i < uPointLightCount; ++i) {
@@ -151,7 +183,6 @@ void main() {
         Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
     }
 
-
     vec3 F = F_SchlickRoughness(max(dot(normal, V), 0.0), F0, roughness);
     vec3 kS = F;
     vec3 kD = 1.0 - kS;
@@ -168,13 +199,11 @@ void main() {
     vec2 brdf  = texture(brdfLUT, vec2(max(dot(normal, V), 0.0), roughness)).rg;
     vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
 
-    vec3 ambient = (kD * diffuse + specular) * ao * SSAO;
+    vec3 ambient = (kD * diffuse + specular) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
 
-    // FragColor = vec4(vec3(SSAO), 1.0);
-    // FragColor = vec4(albedo, 1.0);
     FragColor = vec4(color,  1.0);
 }
