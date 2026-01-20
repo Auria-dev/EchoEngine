@@ -181,6 +181,60 @@ Application::Application()
 	InputManager::GetInstance().BindAction("ReloadShaders",InputType::Key, GLFW_KEY_R);
 }
 
+bool DirectionGizmo(const char* label, glm::vec3& direction) {
+    bool value_changed = false;
+    ImGuiIO& io = ImGui::GetIO();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    float radius = 40.0f;
+    float thickness = 2.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImVec2 center = ImVec2(p.x + radius, p.y + radius);
+
+    ImGui::InvisibleButton(label, ImVec2(radius * 2, radius * 2));
+    bool is_active = ImGui::IsItemActive();
+    bool is_hovered = ImGui::IsItemHovered();
+
+    if (is_active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        ImVec2 delta = io.MouseDelta;
+        float sensitivity = 0.01f;
+
+        glm::mat4 yaw = glm::rotate(glm::mat4(1.0f), -delta.x * sensitivity, glm::vec3(0, 1, 0));
+        
+        glm::vec3 right = glm::cross(direction, glm::vec3(0, 1, 0));
+        if (glm::length(right) < 0.001f) right = glm::vec3(1, 0, 0);
+        glm::mat4 pitch = glm::rotate(glm::mat4(1.0f), delta.y * sensitivity, glm::normalize(right));
+
+        direction = glm::vec3(yaw * pitch * glm::vec4(direction, 0.0f));
+        direction = glm::normalize(direction);
+        value_changed = true;
+    }
+
+    ImU32 col_bg = ImGui::GetColorU32(ImGuiCol_FrameBg);
+    ImU32 col_border = ImGui::GetColorU32(ImGuiCol_Text);
+    ImU32 col_arrow = ImGui::GetColorU32(ImGuiCol_ButtonActive);
+
+    draw_list->AddCircleFilled(center, radius, col_bg);
+    draw_list->AddCircle(center, radius, col_border, 12, thickness);
+
+    float arrow_len = radius * 0.9f;
+    
+    glm::vec3 up(0, 1, 0);
+    glm::vec3 right = glm::normalize(glm::cross(direction, up));
+    ImVec2 arrow_end(
+        center.x + direction.x * arrow_len, 
+        center.y - direction.y * arrow_len
+    );
+    
+    draw_list->AddLine(center, arrow_end, col_arrow, 3.0f);
+    draw_list->AddCircleFilled(arrow_end, 4.0f, col_arrow);
+
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + radius * 2 + 5));
+    ImGui::Text("%s", label);
+
+    return value_changed;
+}
+
 Application::~Application()
 {
     ImGui_ImplOpenGL3_Shutdown();
@@ -195,15 +249,15 @@ void Application::Run()
 {
     std::cout << std::endl;
 
-    Entity room;
-    room.LoadFromOBJ("assets/models/room.obj");
-    room.Translate(glm::vec3(3.3f, 2.5f, 0.0f));
-    room.Rotate(glm::vec3(0.0f, 20.0f, 0.0f));
-    m_Scene.Entities.push_back(&room);
+    // Entity room;
+    // room.LoadFromOBJ("assets/models/room.obj");
+    // room.Translate(glm::vec3(3.3f, 2.5f, 0.0f));
+    // room.Rotate(glm::vec3(0.0f, 20.0f, 0.0f));
+    // m_Scene.Entities.push_back(&room);
     
     Entity ground;
-    ground.LoadFromOBJ("assets/models/landscape.obj");
-    ground.Scale(glm::vec3(1.0,0.5,1.0));
+    ground.LoadFromOBJ("assets/models/terrain.obj");
+    ground.Translate(glm::vec3(0.0, -191.2, 0.0));
     m_Scene.Entities.push_back(&ground);
 
     glm::vec3 lightColor(1.0f, 0.83f, 0.72);
@@ -219,37 +273,17 @@ void Application::Run()
     // m_Scene.Entities.push_back(&BistroInt);
 
     Camera t = Camera();
-    t.SetPosition(glm::vec3(-10.3f, 15.0f, 4.0f));
-    t.SetYaw(330.0);
+    t.SetPosition(glm::vec3(-403.0, -37.0, -950.0));
+    t.SetPitch(3.71);
+    t.SetYaw(57.71);
+    t.m_MovementSpeed = 10.0f;
     
-    // PointLight* pointlight = new PointLight();
-    // pointlight->Position = glm::vec3(2.5f, 2.7f, -0.8f);
-    // pointlight->Color = lightColor;
-    // pointlight->Intensity = 4.2f;
-    // m_Scene.Lights.push_back(pointlight);
     
     DirectionalLight* dirLight = new DirectionalLight();
-    dirLight->Direction = glm::vec3(-9.878, -0.1, -0.468);
+    dirLight->Direction = glm::normalize(glm::vec3(-9.878, -0.1, -0.468));
     dirLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
     dirLight->Intensity = 1.0f;
     m_Scene.Lights.push_back(dirLight);
-
-    // glm::vec3 positions[4] = {
-    //     { 6.100, 2.600, -8.500},
-    //     { 4.25, 2.600, -4.920},
-    //     { 5.0, 2.6, -0.5},
-    //     { 8.0, 2.6, 1.0}
-    // };
-
-    // for (int i=0;i<4;i++) {
-    //     SpotLight* spotLight = new SpotLight();
-    //     spotLight->Direction = glm::vec3(0.0f, -1.0f, 0.0f);
-    //     spotLight->Position = positions[i];
-    //     spotLight->Color = lightColor;
-    //     spotLight->InnerCutoff = 16.0f;
-    //     spotLight->OuterCutoff = 120.0f;
-    //     m_Scene.Lights.push_back(spotLight);
-    // }
 
     m_Scene.activeCamera = &t;
     m_Scene.activeCamera->SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());
@@ -281,6 +315,7 @@ void Application::Run()
         ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
         glm::vec3 camPos = m_Scene.activeCamera->GetPosition();
         glm::vec3 camFront = m_Scene.activeCamera->GetFront();
+        ImGui::DragFloat("Move speed", &m_Scene.activeCamera->m_MovementSpeed, 0.1f, 0.01f, 50.0f);
         ImGui::Text("Position: (%.2f, %.2f, %.2f)", camPos.x, camPos.y, camPos.z);
         ImGui::Text("Direction: (%.2f, %.2f, %.2f)", camFront.x, camFront.y, camFront.z);
         ImGui::Text("Pitch: %.2f, Yaw: %.2f", m_Scene.activeCamera->GetPitch(), m_Scene.activeCamera->GetYaw());
@@ -376,7 +411,8 @@ void Application::Run()
                         {
                             ImGui::ColorEdit3("Color", &dLight->Color.x);
                             ImGui::DragFloat("Intensity", &dLight->Intensity, 0.1f, 0.0f, 100.0f);
-                            if (ImGui::DragFloat3("Direction", &dLight->Direction.x, 0.05f)) dLight->Direction = glm::normalize(dLight->Direction);
+                            // if (ImGui::DragFloat3("Direction", &dLight->Direction.x, 0.05f)) dLight->Direction = glm::normalize(dLight->Direction);
+                            if (DirectionGizmo("Direction", dLight->Direction)) dLight->Direction = glm::normalize(dLight->Direction);
                         }
                         else if (pLight)
                         {

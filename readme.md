@@ -2,7 +2,7 @@
 
 A modern 3D rendering engine built with C++20 and OpenGL 4.6, demonstrating physically-based rendering (PBR) techniques with a deferred rendering pipeline (and forward for transparent objects)
 
-![EchoEngine Screenshot](Image.png)
+![EchoEngine Screenshot](showcase/Image.png)
 
 ## Features
 
@@ -12,6 +12,8 @@ A modern 3D rendering engine built with C++20 and OpenGL 4.6, demonstrating phys
 - **Image-Based Lighting**: Environment cubemap, irradiance map, prefilter map, BRDF LUT
 - **Screen-Space Ambient Occlusion**: Kernel-based SSAO with bilateral blur
 - **Skybox Rendering**: Environment cubemap with seamless transitions
+- **Atmosphere Rendering**: Single and Multi scattering atmospheric rendering using LUTs
+- **Shadow mapping**: Shadow mapping & volumetric shadowing
 
 ### Asset Management
 - **OBJ/MTL Model Loading**: Full support for Wavefront OBJ format with material libraries
@@ -23,6 +25,18 @@ A modern 3D rendering engine built with C++20 and OpenGL 4.6, demonstrating phys
 - **Performance Monitor**: Real-time FPS counter and frame time graph
 - **Hot Reloading**: Live shader reloading with R key
 - **GPU Texture Debugger**: Visualize G-Buffer targets, SSAO outputs, and material cache
+
+
+<br>
+<br>
+
+Atmosphere is currently missing proper irradiance and specular
+|                      |                      |
+|----------------------|----------------------|
+| Morning | Noon    |
+| ![EchoEngine Screenshot](showcase/time_2.png) | ![EchoEngine Screenshot](showcase/time_1.png) |
+| Night   | Volumetric shadowing (lightshafts) |
+| ![EchoEngine Screenshot](showcase/time_3.png) | ![EchoEngine Screenshot](showcase/volumetric_shadows.png) |
 
 ## Quick Start
 
@@ -71,72 +85,6 @@ ninja
 | Reload Shaders | R |
 | Quit | Escape |
 
-## Architecture
-
-EchoEngine follows a modular architecture with clear separation of concerns:
-
-```mermaid
-graph TB
-    subgraph "Application Layer"
-        App["Application<br/>(Application.cpp)"]
-        Input["InputManager<br/>Keyboard/Mouse Events"]
-    end
-    
-    subgraph "Scene Organization"
-        Scene["Scene Data Structure<br/>Scene.h"]
-        Entity["Entity<br/>Renderable Objects"]
-        Camera["Camera<br/>View/Projection"]
-        Lights["Light System<br/>Dir/Point/Spot"]
-    end
-    
-    subgraph "Rendering Pipeline"
-        Renderer["Renderer<br/>(Renderer.cpp)"]
-        Shader["Shader Programs<br/>GLSL Compilation"]
-        GBuffer["G-Buffer<br/>Position/Normal/Albedo/ARM"]
-        RenderTex["RenderTexture<br/>GPU Texture Wrapper"]
-    end
-    
-    subgraph "Resource Management"
-        OBJLoader["OBJLoader<br/>Wavefront Parser"]
-        Mesh["Mesh/SubMesh<br/>Geometry Data"]
-        Material["Material<br/>Texture Aggregation"]
-        Texture["Texture<br/>CPU-side Images"]
-    end
-    
-    App --> Renderer
-    App --> Input
-    App --> Scene
-    Renderer --> Scene
-    Renderer --> Shader
-    Renderer --> GBuffer
-    Scene --> Entity
-    Scene --> Camera
-    Scene --> Lights
-    Entity --> Mesh
-    Entity --> Material
-    OBJLoader --> Mesh
-    OBJLoader --> Material
-    Material --> Texture
-```
-
-### Core Components
-
-- **Application Class**: Main orchestrator handling window management, input, and the main loop
-- **Renderer**: Multi-pass rendering pipeline with G-Buffer, SSAO, lighting, and forward passes
-- **Scene System**: Entity-component style scene organization with lights and camera
-- **Resource Management**: Lazy loading with CPU/GPU resource separation
-
-## Rendering Pipeline
-
-The engine implements a multi-pass rendering pipeline:
-
-1. **G-Buffer Pass**: Render position, normal, albedo, and ARM (Ambient/Roughness/Metallic) to separate render targets
-2. **SSAO Generation**: Compute ambient occlusion using position/normal from G-Buffer
-3. **SSAO Blur**: Apply bilateral filter to smooth SSAO result
-4. **Lighting Pass**: Fullscreen quad applying PBR lighting with IBL
-5. **Skybox Rendering**: Draw environment cubemap
-6. **Forward Pass**: Render transparent objects with alpha blending
-
 ## Dependencies
 
 | Library | Version | Purpose |
@@ -147,39 +95,11 @@ The engine implements a multi-pass rendering pipeline:
 | ImGui | Docking Branch | Debug UI and scene inspector |
 | STBImage | - | Image loading (PNG/JPG) |
 
-## Build System
 
-The CMake configuration includes several optimizations for fast compilation:
+> All "heavy" (large) models are from [jvm-graphics-labs/awesome-3d-meshes](https://github.com/jvm-graphics-labs/awesome-3d-meshes/)
 
-- **C++20 Standard**: Modern C++ features
-- **Unity Builds**: Reduce compilation time
-- **Precompiled Headers**: Cache common includes
-- **CCache**: Build caching across recompiles
-- **Fast Linker**: Prefer mold > lld > default
 
-## Asset Credits
-
-All "heavy" (large) models are from [jvm-graphics-labs/awesome-3d-meshes](https://github.com/jvm-graphics-labs/awesome-3d-meshes/)
-
-## Future Plans
-
-- [ ] Transparency support (split opaque and translucent meshes)
-- [ ] Binary compression of meshes
-- [ ] Texture block compression
-- [ ] Primitive drawing/generation
-- [ ] 3D Billboard images
-- [ ] 3D Gizmos and entity selection
-- [ ] Asset manager GUI
-- [ ] Atmospheric scattering
-- [ ] Volumetric rendering (clouds, lightshafts)
-- [ ] Post-processing effects (bloom, motion blur, depth of field)
-- [ ] Multithreading (for loading assets, rendering, etc)
-- [ ] Save state system / hot reloading
-- [ ] Animation system
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues and pull requests.
+All contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## License
 

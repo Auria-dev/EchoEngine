@@ -72,7 +72,7 @@ private:
     float m_FOV;
 
     float m_Near = 0.1f;
-    float m_Far = 1000.0f;
+    float m_Far = 10000.0f;
 
     void UpdateCameraVectors();
 };
