@@ -190,37 +190,55 @@ bool DirectionGizmo(const char* label, glm::vec3& direction) {
     float thickness = 2.0f;
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImVec2 center = ImVec2(p.x + radius, p.y + radius);
+    ImGuiID id = ImGui::GetID(label);
 
     ImGui::InvisibleButton(label, ImVec2(radius * 2, radius * 2));
-    bool is_active = ImGui::IsItemActive();
-    bool is_hovered = ImGui::IsItemHovered();
+    ImGuiStorage* storage = ImGui::GetStateStorage();
+    
+    if (ImGui::IsItemActivated()) {
+        storage->SetFloat(id, io.MousePos.x);
+        storage->SetFloat(id + 1, io.MousePos.y);
+    }
 
-    if (is_active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+    if (ImGui::IsItemActive()) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
         ImVec2 delta = io.MouseDelta;
-        float sensitivity = 0.01f;
-
-        glm::mat4 yaw = glm::rotate(glm::mat4(1.0f), -delta.x * sensitivity, glm::vec3(0, 1, 0));
         
-        glm::vec3 right = glm::cross(direction, glm::vec3(0, 1, 0));
-        if (glm::length(right) < 0.001f) right = glm::vec3(1, 0, 0);
-        glm::mat4 pitch = glm::rotate(glm::mat4(1.0f), delta.y * sensitivity, glm::normalize(right));
+        if (delta.x != 0.0f || delta.y != 0.0f) {
+            float sensitivity = 0.0005f;
 
-        direction = glm::vec3(yaw * pitch * glm::vec4(direction, 0.0f));
-        direction = glm::normalize(direction);
-        value_changed = true;
+            glm::mat4 yaw = glm::rotate(glm::mat4(1.0f), -delta.x * sensitivity, glm::vec3(0, 1, 0));
+            glm::vec3 right = glm::cross(direction, glm::vec3(0, 1, 0));
+            
+            if (glm::length(right) < 0.001f) right = glm::vec3(1, 0, 0);
+            
+            glm::mat4 pitch = glm::rotate(glm::mat4(1.0f), delta.y * sensitivity, glm::normalize(right));
+
+            direction = glm::vec3(yaw * pitch * glm::vec4(direction, 0.0f));
+            direction = glm::normalize(direction);
+            value_changed = true;
+            
+            ImVec2 lock_pos = ImVec2(storage->GetFloat(id), storage->GetFloat(id + 1));
+            
+            io.MousePos = lock_pos;
+            io.WantSetMousePos = true; 
+        }
     }
 
     ImU32 col_bg = ImGui::GetColorU32(ImGuiCol_FrameBg);
     ImU32 col_border = ImGui::GetColorU32(ImGuiCol_Text);
     ImU32 col_arrow = ImGui::GetColorU32(ImGuiCol_ButtonActive);
 
+    if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+        col_border = ImGui::GetColorU32(ImGuiCol_TextDisabled); 
+    }
+
     draw_list->AddCircleFilled(center, radius, col_bg);
     draw_list->AddCircle(center, radius, col_border, 12, thickness);
 
     float arrow_len = radius * 0.9f;
-    
     glm::vec3 up(0, 1, 0);
-    glm::vec3 right = glm::normalize(glm::cross(direction, up));
+    glm::vec3 draw_right = glm::normalize(glm::cross(direction, up)); 
     ImVec2 arrow_end(
         center.x + direction.x * arrow_len, 
         center.y - direction.y * arrow_len

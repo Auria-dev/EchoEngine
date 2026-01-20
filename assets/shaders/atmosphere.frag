@@ -32,6 +32,11 @@ const vec3 RayleighExtinction = RayleighScattering    + vec3(RayleighAbsorption)
 const vec3 MieExtinction      = vec3(MieScattering)   + vec3(MieAbsorption);
 const vec3 OzoneExtinction    = vec3(OzoneScattering) +      OzoneAbsorption;
 
+float IGN(vec2 uv)
+{
+    return mod(52.9829189 * mod(0.06711056*uv.x + 0.00583715*uv.y, 1.0), 1.0);
+}
+
 vec3 GetWorldPos(float depth, vec2 uv) {
     float z = depth * 2.0 - 1.0;
     vec4 clip = vec4(uv * 2.0 - 1.0, z, 1.0);
@@ -135,10 +140,10 @@ void main()
     vec2 t_ground = RaySphereIntersection(camPosKM, rayDir, RGround);
     if (t_ground.x > 0.0) tEnd = min(tEnd, t_ground.x);
 
-    const int STEPS = 16;
+    const int STEPS = 32;
     float dt = (tEnd - tStart) / float(STEPS);
     vec3 currentPos = camPosKM + rayDir * (tStart + dt * 0.5);
-    float tCurrent = tStart;
+    float tCurrent = tStart + dt*ditherValue; 
 
     vec3 L = vec3(0.0);
     vec3 T_view = vec3(1.0);
@@ -173,7 +178,8 @@ void main()
         vec3 ms = GetMultiScattering(currentPos, dot(normalize(currentPos), sunDir));
 
         // vec3 S = (sigma_s_r * phaseR + sigma_s_m * phaseM + ms * (sigma_s_r + sigma_s_m)) * T_sun * sunE;
-        vec3 S = ((sigma_s_r * phaseR + sigma_s_m * phaseM) * lightVisibility + ms * (sigma_s_r + sigma_s_m)) * T_sun * sunE;
+        vec3 S = ((sigma_s_r * phaseR + sigma_s_m * phaseM) + ms * (sigma_s_r + sigma_s_m)) * T_sun * sunE;
+        S*=lightVisibility;
 
         L += S * T_view * dt;
         T_view *= exp(-sigma_t * dt);
