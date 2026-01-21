@@ -275,33 +275,30 @@ void Application::Run()
     
     Entity ground;
     ground.LoadFromOBJ("assets/models/terrain.obj");
-    ground.Translate(glm::vec3(0.0, -191.2, 0.0));
-    m_Scene.Entities.push_back(&ground);
-
-    glm::vec3 lightColor(1.0f, 0.83f, 0.72);
+    ground.Translate(glm::vec3(0.0, 0.0, 0.0));
+    m_Scene.m_Entities.push_back(&ground);
 
     // Entity BistroExt;
     // BistroExt.LoadFromOBJ("assets/models/heavy/BistroExterior.obj");
     // BistroExt.SetScale(glm::vec3(0.01, 0.01, 0.01));
-    // m_Scene.Entities.push_back(&BistroExt);
+    // BistroExt.SetPosition(glm::vec3(-89.0, 132.0, -867.0));
+    // m_Scene.m_Entities.push_back(&BistroExt);
 
     // Entity BistroInt;
     // BistroInt.LoadFromOBJ("assets/models/heavy/interior.obj");
     // BistroInt.SetScale(glm::vec3(0.01, 0.01, 0.01));
-    // m_Scene.Entities.push_back(&BistroInt);
+    // m_Scene.m_Entities.push_back(&BistroInt);
 
     Camera t = Camera();
-    t.SetPosition(glm::vec3(-403.0, -37.0, -950.0));
-    t.SetPitch(3.71);
-    t.SetYaw(57.71);
+    t.SetPosition(glm::vec3(-109.0, 152.0, -867.0));
+    t.SetPitch(6.0);
+    t.SetYaw(54.03);
     t.m_MovementSpeed = 10.0f;
     
     
-    DirectionalLight* dirLight = new DirectionalLight();
-    dirLight->Direction = glm::normalize(glm::vec3(-9.878, -0.1, -0.468));
-    dirLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
-    dirLight->Intensity = 1.0f;
-    m_Scene.Lights.push_back(dirLight);
+    m_Scene.m_Sun.Direction = glm::normalize(glm::vec3(-0.26, -0.56, -0.78));
+    m_Scene.m_Sun.Color = glm::vec3(1.0f, 1.0f, 1.0f);
+    m_Scene.m_Sun.Intensity = 1.0f;
 
     m_Scene.activeCamera = &t;
     m_Scene.activeCamera->SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());
@@ -331,29 +328,39 @@ void Application::Run()
         fpsHistory[fpsHistoryIndex] = fps;
         fpsHistoryIndex = (fpsHistoryIndex + 1) % 100;
         ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
+        ImGui::NewLine();
+        std::unordered_map<std::string, std::chrono::nanoseconds>::iterator it;
+        for (it=m_Renderer.m_PerformanceTimer.begin(); it!=m_Renderer.m_PerformanceTimer.end(); ++it)
+        {
+            ImGui::Text("%-16s: %4lld microsecond(s)",it->first.c_str(), (long long)std::chrono::duration_cast<std::chrono::microseconds>(it->second).count());
+        }
+
         glm::vec3 camPos = m_Scene.activeCamera->GetPosition();
         glm::vec3 camFront = m_Scene.activeCamera->GetFront();
-        ImGui::DragFloat("Move speed", &m_Scene.activeCamera->m_MovementSpeed, 0.1f, 0.01f, 50.0f);
+        ImGui::DragFloat("Move speed", &m_Scene.activeCamera->m_MovementSpeed, 0.1f, 0.01f, 400.0f);
         ImGui::Text("Position: (%.2f, %.2f, %.2f)", camPos.x, camPos.y, camPos.z);
         ImGui::Text("Direction: (%.2f, %.2f, %.2f)", camFront.x, camFront.y, camFront.z);
         ImGui::Text("Pitch: %.2f, Yaw: %.2f", m_Scene.activeCamera->GetPitch(), m_Scene.activeCamera->GetYaw());
 
         ImGui::End();
 
-        ImGui::Begin("Style editor");        
-        ImGui::ShowStyleEditor();
-        ImGui::End();
-
+        // ImGui::Begin("Style editor");        
+        // ImGui::ShowStyleEditor();
+        // ImGui::End();
 
         ImGui::Begin("Scene Inspector");
+        ImGui::Text("Sun parameters");
+        ImGui::ColorEdit3("Color", &m_Scene.m_Sun.Color.x);
+        ImGui::DragFloat("Intensity", &m_Scene.m_Sun.Intensity, 0.1f, 0.0f, 100.0f);
+        if (DirectionGizmo("Direction", m_Scene.m_Sun.Direction)) m_Scene.m_Sun.Direction = glm::normalize(m_Scene.m_Sun.Direction);
 
         if (ImGui::BeginTabBar("SceneTabs"))
         {
             if (ImGui::BeginTabItem("Entities"))
             {
-                for (size_t i = 0; i < m_Scene.Entities.size(); ++i)
+                for (size_t i = 0; i < m_Scene.m_Entities.size(); ++i)
                 {
-                    Entity& entity = *m_Scene.Entities[i]; 
+                    Entity& entity = *m_Scene.m_Entities[i]; 
                     std::string entityName = "Entity " + std::to_string(i);
                     ImGui::PushID(static_cast<int>(i));
 
@@ -408,9 +415,9 @@ void Application::Run()
 
             if (ImGui::BeginTabItem("Lights"))
             {
-                for (size_t i = 0; i < m_Scene.Lights.size(); ++i)
+                for (size_t i = 0; i < m_Scene.m_Lights.size(); ++i)
                 {
-                    Light* light = m_Scene.Lights[i];
+                    Light* light = m_Scene.m_Lights[i];
                     ImGui::PushID(static_cast<int>(i));
 
                     DirectionalLight* dLight = dynamic_cast<DirectionalLight*>(light);

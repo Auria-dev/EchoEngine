@@ -25,13 +25,12 @@ GLenum glCheckError_(const char *file, int line)
 }
 #define glCheckError() glCheckError_(__FILE__, __LINE__) 
 
-
 void Renderer::Init(int width, int height)
 {
     m_Width = width;
     m_Height = height;
 
-    m_Exposure = 0.5;
+    m_Exposure = 1.0;
     m_ForwardShader = new Shader("assets/shaders/forward.vert", "assets/shaders/forward.frag");
 
     m_GBufferShader = new Shader("assets/shaders/gbuffer.vert", "assets/shaders/gbuffer.frag");
@@ -50,6 +49,8 @@ void Renderer::Init(int width, int height)
     m_TransmittanceShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/transmittance.frag");
     m_MultiScatteringShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/multi_scattering.frag");
     m_ShadowMapShader = new Shader("assets/shaders/shadow_map.vert", "assets/shaders/shadow_map.frag");
+
+    glGenQueries(1, &m_TimeElapsedQuery);
 
     // glEnable(GL_BLEND);
 	// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -188,6 +189,7 @@ void Renderer::Init(int width, int height)
 
     m_GBuffer.quad.Init();
 
+    /*
     // skybox
     float cubeVertices[] = {-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  1.0f, 1.0f, -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.5f, -0.5f,  0.5f,  1.0f, 0.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, -0.5f,  0.5f, -0.5f,  0.0f, 1.0f };
     float skyboxVertices[] = {-1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f,  1.0f, -1.0f, -1.0f,  1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f,  1.0f, 1.0f,  1.0f,  1.0f, 1.0f,  1.0f,  1.0f, 1.0f,  1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, -1.0f,  1.0f,  1.0f, 1.0f,  1.0f,  1.0f, 1.0f,  1.0f,  1.0f, 1.0f, -1.0f,  1.0f, -1.0f, -1.0f,  1.0f, -1.0f,  1.0f, -1.0f, 1.0f,  1.0f, -1.0f, 1.0f,  1.0f,  1.0f, 1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f,  1.0f, 1.0f, -1.0f,  1.0f };
@@ -269,14 +271,12 @@ void Renderer::Init(int width, int height)
         glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f)) 
     };
 
-    glCheckError(); // no errors
     glViewport(0, 0, cubemapResolution, cubemapResolution);
     m_EquirectangularToCubemapShader->Bind();
     m_EquirectangularToCubemapShader->SetUniform1i("equirectangularMap", 0);
     m_EquirectangularToCubemapShader->SetUniformMat4f("uProj", captureProjection);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_SkyboxTexture);
-    glCheckError(); // errors
 
     glViewport(0, 0, cubemapResolution, cubemapResolution);
     glBindFramebuffer(GL_FRAMEBUFFER, m_CaptureFBO);
@@ -398,6 +398,8 @@ void Renderer::Init(int width, int height)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     m_GBuffer.quad.Draw();
     
+    */
+
     glGenTextures(1, &m_TransmittanceLUT);
     glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 256, 64, 0, GL_RGB, GL_FLOAT, NULL);
@@ -440,8 +442,8 @@ void Renderer::Init(int width, int height)
     glViewport(0, 0, m_Width, m_Height);
 
     glGenFramebuffers(1, &m_ShadowMapFBO);
-    m_ShadowWidth = 2048*2;
-    m_ShadowHeight = 2048*2;
+    m_ShadowWidth = 2048;
+    m_ShadowHeight = 2048;
     glGenTextures(1, &m_ShadowMap);
     glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, m_ShadowWidth, m_ShadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -521,11 +523,24 @@ static void DebugTextureItem(const char* label, uint32_t texID, float width = 12
     if (ImGui::GetContentRegionAvail().x < width) ImGui::NewLine();
 }
 
+template <auto RenderPass>
+void Renderer::TimeRenderpass(std::string name)
+{
+    GLuint64 elapsed = 0;
+    glBeginQuery(GL_TIME_ELAPSED, m_TimeElapsedQuery);
+
+    (this->*RenderPass)();
+    
+    glEndQuery(GL_TIME_ELAPSED);
+    glGetQueryObjectui64v(m_TimeElapsedQuery,GL_QUERY_RESULT,&elapsed);
+    m_PerformanceTimer[name] = std::chrono::nanoseconds(elapsed);
+}
+
 void Renderer::OnImGuiRender()
 {
     ImGui::Begin("GPU Texture Debugger");
 
-    if (ImGui::CollapsingHeader("GBuffer Targets", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("GBuffers"))
     {
         DebugTextureItem("Position", m_GBuffer.Position);
         DebugTextureItem("Normal", m_GBuffer.Normal);
@@ -536,14 +551,16 @@ void Renderer::OnImGuiRender()
     
     ImGui::NewLine(); 
 
-    if (ImGui::CollapsingHeader("SSAO & Lighting"))
+    if (ImGui::CollapsingHeader("Lighting"))
     {
         DebugTextureItem("SSAO Raw", m_SSAOColorBuffer);
         DebugTextureItem("SSAO Blur", m_SSAOBlurBuffer);
-        DebugTextureItem("BRDF LUT", m_BRDFLUTTexture, 128,128);
+        // DebugTextureItem("BRDF LUT", m_BRDFLUTTexture, 128,128);
         DebugTextureItem("Shadowmap", m_ShadowMap, 128,128);
+        ImGui::NewLine();
         ImGui::DragFloat("Shadowmap distance", &m_LightDistance, 1.0f, 20.0f, 300.0f);
         DebugTextureItem("Transmittance LUT", m_TransmittanceLUT, 256, 64);
+        ImGui::NewLine();
         ImGui::DragFloat("Exposure", &m_Exposure, 0.05, 0.0, 3.0);
     }
 
@@ -590,256 +607,18 @@ void Renderer::EndFrame() { }
 
 void Renderer::DrawScene()
 {
-    for (Entity* e : m_Scene->Entities)
+
+    for (Entity* e : m_Scene->m_Entities)
     {
         SubmitDrawCmd(*e, *m_GBufferShader);
     }
 
-    // geometry pass
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-
-    m_GBufferShader->Bind();
-    m_GBufferShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
-    m_GBufferShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
-
-    for (const DrawCmd& cmd : m_DeferredQueue)
-    {
-        m_GBufferShader->SetUniformMat4f("uModel", cmd.Model);
-        BindMaterial(cmd.Material);
-        cmd.Mesh->Bind();
-        cmd.Mesh->DrawSubMesh(cmd.SubMeshIndex);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // ssao pass
-    glBindFramebuffer(GL_FRAMEBUFFER, m_SSAOFBO);
-    glClear(GL_COLOR_BUFFER_BIT);
-    m_SSAOShader->Bind();
-    m_SSAOShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
-    m_SSAOShader->SetUniform2f("uResolution", m_Width, m_Height);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_GBuffer.Position);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, m_GBuffer.Normal);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, m_SSAONoise);
-    m_GBuffer.quad.Draw();
-
-    // blur SSAO texture
-    glBindFramebuffer(GL_FRAMEBUFFER, m_SSAOBlurFBO);
-    glClear(GL_COLOR_BUFFER_BIT);
-    m_SSAOBlurShader->Bind();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_SSAOColorBuffer);
-    m_GBuffer.quad.Draw();
-
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // Shadowmap
-    DirectionalLight* mainLight = new DirectionalLight();
-    mainLight->Direction = glm::vec3(-9.878, -0.1, -0.468);
-    mainLight->Color = glm::vec3(1.0f, 34.0/255.0, 0.0f);
-    mainLight->Intensity = 1.0f;
-
-    for (const Light* light : m_Scene->Lights) 
-    {
-        if (light->GetType() != Light::LightType::Directional) continue;
-        const DirectionalLight* dLight = static_cast<const DirectionalLight*>(light);
-        mainLight = const_cast<DirectionalLight*>(dLight);
-        break;
-    }
-    
-    glm::vec3 camPos = m_Scene->activeCamera->GetPosition();
-    
-    m_ShadowMapShader->Bind();
-    glm::vec3 lightFocus = glm::vec3(0.0f);
-    m_LightView = glm::lookAt(lightFocus - glm::normalize(mainLight->Direction) * m_LightDistance, lightFocus, glm::vec3(0.0f, 1.0f, 0.0f));
-    m_LightProj = m_OrthoProj * m_LightView;
-    m_ShadowMapShader->SetUniformMat4f("uLightProj", m_LightProj);
-
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
-    // glCullFace(GL_FRONT);
-    glViewport(0,0,m_ShadowWidth, m_ShadowHeight);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_ShadowMapFBO);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    for (const DrawCmd& cmd : m_DeferredQueue)
-    {
-        if (!cmd.shadowCasting) continue;
-        m_ShadowMapShader->SetUniformMat4f("uModel", cmd.Model);
-        BindMaterial(cmd.Material);
-        cmd.Mesh->Bind();
-        cmd.Mesh->DrawSubMesh(cmd.SubMeshIndex);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // TODO: render atmosphere to low resolution cubemap 
-
-    // lighting pass
-    glViewport(0, 0, m_Width, m_Height);
-    glDisable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    
-    m_LightingShader->Bind();
-
-    int dirLightCount = 0;
-    int pointLightCount = 0;
-    int spotLightCount = 0;
-
-    for (const Light* light : m_Scene->Lights)
-    {
-        switch (light->GetType())
-        {
-            case Light::LightType::Directional:
-            {
-                const DirectionalLight* dLight = static_cast<const DirectionalLight*>(light);
-                
-                std::string base = "uDirLights[" + std::to_string(dirLightCount) + "]";
-                glm::vec4 dir = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(dLight->Direction, 0.0f);
-
-                m_LightingShader->SetUniform3f(base + ".direction", dir.x, dir.y, dir.z);
-                m_LightingShader->SetUniform3f(base + ".color",     dLight->Color.x, dLight->Color.y, dLight->Color.z);
-                m_LightingShader->SetUniform1f(base + ".intensity", dLight->Intensity);
-                
-                if (dirLightCount == 0) mainLight = const_cast<DirectionalLight*>(dLight);
-                dirLightCount++;
-            } break;
-
-            case Light::LightType::Point:
-            {
-                const PointLight* pLight = static_cast<const PointLight*>(light);
-                
-                std::string base = "uPointLights[" + std::to_string(pointLightCount) + "]";
-                glm::vec4 pos = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(pLight->Position, 1.0f);
-
-                m_LightingShader->SetUniform3f(base + ".position",  pos.x,  pos.y, pos.z);
-                m_LightingShader->SetUniform3f(base + ".color",     pLight->Color.x, pLight->Color.y, pLight->Color.z);
-                m_LightingShader->SetUniform1f(base + ".intensity", pLight->Intensity);
-                
-                m_LightingShader->SetUniform1f(base + ".constant",  pLight->Constant);
-                m_LightingShader->SetUniform1f(base + ".linear",    pLight->Linear);
-                m_LightingShader->SetUniform1f(base + ".quadratic", pLight->Quadratic);
-
-                pointLightCount++;
-            } break;
-
-            case Light::LightType::Spotlight: 
-            {
-                const SpotLight* sLight = static_cast<const SpotLight*>(light);
-                
-                std::string base = "uSpotLights[" + std::to_string(spotLightCount) + "]";
-                glm::vec4 pos = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(sLight->Position, 1.0f);
-                glm::vec4 dir = m_Scene->activeCamera->GetViewMatrix() * glm::vec4(sLight->Direction, 0.0f);
-
-                m_LightingShader->SetUniform3f(base + ".position",  pos.x,  pos.y, pos.z);
-                m_LightingShader->SetUniform3f(base + ".direction", dir.x,  dir.y, dir.z);
-                m_LightingShader->SetUniform3f(base + ".color",     sLight->Color.x, sLight->Color.y, sLight->Color.z);
-                m_LightingShader->SetUniform1f(base + ".intensity", sLight->Intensity);
-
-                m_LightingShader->SetUniform1f(base + ".innerCutoff", glm::cos(glm::radians(sLight->InnerCutoff)));
-                m_LightingShader->SetUniform1f(base + ".outerCutoff", glm::cos(glm::radians(sLight->OuterCutoff)));
-
-                spotLightCount++; 
-            } break;
-        }
-    }
-
-    m_LightingShader->SetUniform1i("uDirLightCount", dirLightCount);
-    m_LightingShader->SetUniform1i("uPointLightCount", pointLightCount);
-    m_LightingShader->SetUniform1i("uSpotLightCount", spotLightCount);
-    m_LightingShader->SetUniformMat4f("uInverseView", glm::inverse(m_Scene->activeCamera->GetViewMatrix()));
-    m_LightingShader->SetUniformMat4f("uLightProj", m_LightProj);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_GBuffer.Position);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, m_GBuffer.Normal);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, m_GBuffer.Albedo);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, m_GBuffer.ARM);
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D, m_SSAOBlurBuffer);
-    glActiveTexture(GL_TEXTURE5);
-    glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
-    glActiveTexture(GL_TEXTURE6);
-    glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
-    glActiveTexture(GL_TEXTURE7);
-    glBindTexture(GL_TEXTURE_2D, m_PrefilteredMap);
-
-    m_GBuffer.quad.Draw();
-    
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_GBuffer.FBO);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBlitFramebuffer(0, 0, m_Width, m_Height, 0, 0, m_Width, m_Height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    m_AtmosphereShader->Bind();
-
-    glm::mat4 proj = m_Scene->activeCamera->GetProjectionMatrix();
-    glm::mat4 view = m_Scene->activeCamera->GetViewMatrix();
-    glm::mat4 invViewProj = glm::inverse(proj * view);
-    glm::vec3 skyLightColor = mainLight->Color * mainLight->Intensity;
-
-    m_AtmosphereShader->SetUniform1f("exposure", m_Exposure);
-    m_AtmosphereShader->SetUniform3f("viewPos", camPos.x, camPos.y, camPos.z);
-    m_AtmosphereShader->SetUniform3f("uLightDir", -mainLight->Direction.x, -mainLight->Direction.y, -mainLight->Direction.z);
-    m_AtmosphereShader->SetUniformMat4f("uInvViewProj", invViewProj);
-    m_AtmosphereShader->SetUniformMat4f("uLightProj", m_LightProj);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_GBuffer.Depth);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, m_MultiScatteringLUT);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, m_ShadowMap); 
-
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_SRC_ALPHA);
-
-    m_GBuffer.quad.Draw();
-
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-
-    m_ForwardShader->Bind();
-    m_ForwardShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
-    m_ForwardShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
-
-    glEnable(GL_BLEND);
-    glDisable(GL_CULL_FACE);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthMask(GL_FALSE); 
-
-    std::sort(m_ForwardQueue.begin(), m_ForwardQueue.end(), [](const DrawCmd& a, const DrawCmd& b) { return a.depth > b.depth; });
-
-    for (const DrawCmd& cmd : m_ForwardQueue)
-    {
-        m_ForwardShader->SetUniformMat4f("uModel", cmd.Model);
-        
-        float opacity = cmd.Material ? cmd.Material->Dissolve : 1.0f;
-        m_ForwardShader->SetUniform1f("uOpacity", opacity);
-
-        BindMaterial(cmd.Material);
-        cmd.Mesh->Bind();
-        cmd.Mesh->DrawSubMesh(cmd.SubMeshIndex);
-    }
-    
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    TimeRenderpass<&Renderer::GeometryPass>("Geometry pass");
+    TimeRenderpass<&Renderer::SSAOPass>("SSAO pass");
+    TimeRenderpass<&Renderer::ShadowMapPass>("Shadowmap pass");
+    TimeRenderpass<&Renderer::LightingPass>("Lighting pass");
+    TimeRenderpass<&Renderer::AtmospherePass>("Atmosphere pass"); // TODO: render at quarter resolution
+    TimeRenderpass<&Renderer::ForwardPass>("Forward pass");
 }
 
 void Renderer::Resize(int nWidth, int nHeight)

@@ -14,7 +14,7 @@ uniform sampler2D gSSAO;
 // uniform sampler2D brdfLUT;
 uniform sampler2D uShadowMap;
 uniform sampler2D uTransmittanceLUT;
-uniform sampler2D uPrefilteredMap;
+// uniform sampler2D uPrefilteredMap;
 
 #define MAX_DIR_LIGHTS 4
 #define MAX_POINT_LIGHTS 16
@@ -54,7 +54,11 @@ uniform DirectionalLight uDirLights[MAX_DIR_LIGHTS];
 uniform PointLight uPointLights[MAX_POINT_LIGHTS];
 uniform SpotLight uSpotLights[MAX_SPOT_LIGHTS];
 
-uniform int uDirLightCount;
+uniform vec3  uSunDirection;
+uniform vec3  uSunColor;
+uniform float uSunIntensity;
+
+// uniform int uDirLightCount;
 uniform int uPointLightCount;
 uniform int uSpotLightCount;
 uniform mat4 uInverseView;
@@ -74,7 +78,6 @@ vec3 GetTransmittance(vec3 worldPos, vec3 lightDir)
     float u = clamp((cosTheta + 1.0) / 2.0, 0.0, 1.0);
     return texture(uTransmittanceLUT, vec2(u, v)).rgb;
 }
-
 
 float D_GGX(vec3 N, vec3 H, float roughness)
 {
@@ -143,7 +146,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
     float bias = max(0.003 * (1.0 - dot(normal, lightDir)), 0.0003);
     
     float shadow = 0.0;
-    int sampleRadius = 5;
+    int sampleRadius = 2;
     vec2 texelSize = 1.0 / textureSize(uShadowMap, 0);
     for(int y = -sampleRadius; y <= sampleRadius; y++)
     {
@@ -161,65 +164,62 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 
 void main()
 {
-    vec3 fragPos = texture(gPosition, TexCoords).rgb;
-    vec3 normal  = normalize(texture(gNormal, TexCoords).rgb);
-    vec3 albedo  = pow(texture(gAlbedo, TexCoords).rgb, vec3(2.2));
-    vec3 ARM     = texture(gARM, TexCoords).rgb;
-    float SSAO   = texture(gSSAO, TexCoords).r;
-    
-    vec4 worldPos = uInverseView * vec4(fragPos, 1.0);
-    vec4 fragPosLightSpace = uLightProj * worldPos;
-
-    vec3 planetCenterOffset = vec3(0.0, -RGround * 1000.0, 0.0);
-    vec3 fragPosKM = (fragPos * 0.001) + vec3(0.0, RGround, 0.0);
+    vec3 fragPosView = texture(gPosition, TexCoords).rgb;
+    vec3 normalView  = normalize(texture(gNormal, TexCoords).rgb);
+    vec3 albedo      = pow(texture(gAlbedo, TexCoords).rgb, vec3(2.2));
+    vec3 ARM         = texture(gARM, TexCoords).rgb;
+    float SSAO       = texture(gSSAO, TexCoords).r;
 
     float roughness = ARM.g;
     float metallic  = ARM.b;
     float ao        = ARM.r;
 
-    vec3 V = normalize(-fragPos);
-    vec3 R = reflect(-V, normal);
+    vec4 worldPosRaw = uInverseView * vec4(fragPosView, 1.0);
+    vec3 worldPos    = worldPosRaw.xyz;
+    
+    vec3 N = normalize(vec3(uInverseView * vec4(normalView, 0.0))); 
+    
+    vec3 camPos = vec3(uInverseView[3]); 
+    vec3 V = normalize(camPos - worldPos);
 
     vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0);
 
-    float shadow = -1.0;
-    for(int i = 0; i < uDirLightCount; ++i)
-    {
-        vec3 L = normalize(-uDirLights[i].direction);
-        vec3 sunTransmittance = GetTransmittance(fragPos, L);
-        if (shadow == -1.0) shadow = ShadowCalculation(fragPosLightSpace, normal, L); 
-        vec3 radiance = uDirLights[i].color * uDirLights[i].intensity * sunTransmittance;
-        vec3 lightContribution = CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
-        Lo += (1.0 - shadow) * lightContribution;
-    }
+    vec3 fragPosKM = (worldPos * 0.001) + vec3(0.0, RGround, 0.0);
+
+    vec3 sunL = normalize(-uSunDirection);
+    vec3 sunTransmittance = GetTransmittance(fragPosKM, sunL);
+    vec4 fragPosLightSpace = uLightProj * vec4(worldPos, 1.0);
+    float shadow = ShadowCalculation(fragPosLightSpace, N, sunL); 
+    vec3 sunRadiance = uSunColor * uSunIntensity * sunTransmittance;
+    vec3 lightContribution = CalculatePBRLighting(sunL, V, N, sunRadiance, albedo, roughness, metallic, F0);
+    Lo += (1.0 - shadow) * lightContribution;
 
     for(int i = 0; i < uPointLightCount; ++i)
     {
-        vec3 L = normalize(uPointLights[i].position - fragPos);
-        float distance = length(uPointLights[i].position - fragPos);
+        vec3 L = normalize(uPointLights[i].position - worldPos);
+        float distance = length(uPointLights[i].position - worldPos);
         float attenuation = 1.0 / (uPointLights[i].constant + uPointLights[i].linear * distance + uPointLights[i].quadratic * (distance * distance));
         vec3 radiance = uPointLights[i].color * uPointLights[i].intensity * attenuation;
-        Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
+        Lo += CalculatePBRLighting(L, V, N, radiance, albedo, roughness, metallic, F0);
     }
 
     for(int i = 0; i < uSpotLightCount; ++i)
     {
-        vec3 L = normalize(uSpotLights[i].position - fragPos);
-        float distance = length(uSpotLights[i].position - fragPos);
+        vec3 L = normalize(uSpotLights[i].position - worldPos);
+        float distance = length(uSpotLights[i].position - worldPos);
         
         float attenuation = 1.0 / (uSpotLights[i].constant + 0.09 * distance + 0.032 * (distance * distance));
         float theta = dot(L, normalize(-uSpotLights[i].direction)); 
         float epsilon = uSpotLights[i].innerCutoff - uSpotLights[i].outerCutoff;
         float intensity = clamp((theta - uSpotLights[i].outerCutoff) / epsilon, 0.0, 1.0); 
         vec3 radiance = uSpotLights[i].color * uSpotLights[i].intensity * attenuation * intensity;
-        Lo += CalculatePBRLighting(L, V, normal, radiance, albedo, roughness, metallic, F0);
+        Lo += CalculatePBRLighting(L, V, N, radiance, albedo, roughness, metallic, F0);
     }
 
-    vec3 F = F_SchlickRoughness(max(dot(normal, V), 0.0), F0, roughness);
-    vec3 kS = F;
+    vec3 kS = F_SchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - metallic;
     
@@ -239,16 +239,11 @@ void main()
     // vec3 ambient = (kD * diffuse + specular) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
     // vec3 color = ambient + Lo;
 
-    // color = color / (color + vec3(1.0));
-    // color = pow(color, vec3(1.0/2.2));
-
-    vec3 diffuse = albedo;
-
-    vec3 ambient = (kD * diffuse) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
+    vec3 ambient = (kD * albedo) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
 
-    FragColor = vec4(ambient,  1.0);
+    FragColor = vec4(color, 1.0);
 }

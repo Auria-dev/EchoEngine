@@ -12,7 +12,7 @@ public:
     Camera* activeCamera;
     
 	// std::vector<Camera*> Camera;
-	std::vector<Entity*> Entities;
-	std::vector<Light*> Lights;
-
+	std::vector<Entity*> m_Entities;
+	std::vector<Light*> m_Lights;
+	DirectionalLight m_Sun;
 };

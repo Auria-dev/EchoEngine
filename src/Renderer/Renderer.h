@@ -65,6 +65,7 @@ public:
     void SetScene(SceneData& s) { m_Scene = &s; }
     SceneData* GetScene(void) { return m_Scene; }
 
+    std::unordered_map<std::string, std::chrono::nanoseconds> m_PerformanceTimer;
 private:
     SceneData* m_Scene;
     
@@ -74,7 +75,7 @@ private:
     uint m_SSAOFBO, m_SSAOBlurFBO, m_SSAONoise;
     uint m_SSAOColorBuffer, m_SSAOBlurBuffer;
     uint m_ShadowMapFBO, m_ShadowMap, m_ShadowWidth, m_ShadowHeight;
-    uint m_SkyboxTexture, m_IrradianceMap, m_EnvCubemap, m_SkyboxVAO, m_SkyboxVBO, m_CubeVAO, m_CubeVBO, m_CaptureFBO, m_CaptureRBO, m_PrefilterMap, m_BRDFLUTTexture;
+    // uint m_SkyboxTexture, m_IrradianceMap, m_EnvCubemap, m_SkyboxVAO, m_SkyboxVBO, m_CubeVAO, m_CubeVBO, m_CaptureFBO, m_CaptureRBO, m_PrefilterMap, m_BRDFLUTTexture;
     uint m_Width, m_Height;
     uint m_TransmittanceLUT, m_TransmittanceFBO;
     uint m_MultiScatteringLUT, m_MultiScatteringFBO;
@@ -101,6 +102,15 @@ private:
     glm::mat4 m_LightView;
     glm::mat4 m_LightProj;
 
+    uint m_TimeElapsedQuery;
+
+    void GeometryPass();
+    void SSAOPass();
+    void ShadowMapPass();
+    void LightingPass();
+    void AtmospherePass();
+    void ForwardPass();
+
     float m_Exposure;
 
     std::vector<glm::vec3> m_SSAOKernel;
@@ -112,4 +122,7 @@ private:
     std::unordered_map<const Texture*, std::unique_ptr<RenderTexture>> m_TextureCache;
 
     void BindMaterial(std::shared_ptr<Material> mat);
+    
+    template <auto RenderPass>
+    void TimeRenderpass(std::string name);
 };

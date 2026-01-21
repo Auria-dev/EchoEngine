@@ -24,6 +24,8 @@ const float RayleighAbsorption = 0.0;
 
 const float MieScattering     = 3.996 * 0.001; 
 const float MieAbsorption     = 4.40  * 0.001;
+// const float MieScattering     = 20.0 * 0.001; 
+// const float MieAbsorption     = 0.1  * 0.001;
 
 const float OzoneScattering   = 0.0;
 const vec3  OzoneAbsorption   = vec3(0.650, 1.881, 0.085) * 0.001;
@@ -116,10 +118,11 @@ void main()
 {
     float depthVal = texture(gDepth, TexCoords).r;
     vec3 worldPos = GetWorldPos(depthVal, TexCoords);
-    float ditherValue = fract(sin(dot(TexCoords.xy, vec2(12.9898,78.233))) * 43758.5453);
+    float ditherValue = IGN(gl_FragCoord.xy);
+    ditherValue = 0.0;
     
     vec3 camPosKM = viewPos * 0.001;
-    camPosKM.y += RGround + 1.6;
+    camPosKM.y += RGround + 0.6;
     vec3 rayDir = normalize(worldPos - viewPos);
     float sceneDistKM = length(worldPos - viewPos) * 0.001;
     bool hitsGeometry = depthVal < 1.0;
@@ -148,7 +151,7 @@ void main()
     vec3 L = vec3(0.0);
     vec3 T_view = vec3(1.0);
     vec3 sunDir = normalize(uLightDir);
-    float sunE = 20.0;
+    float sunE = 1.0;
 
     for (int i = 0; i < STEPS; ++i)
     {
@@ -173,13 +176,14 @@ void main()
 
         float mu     = dot(rayDir, sunDir);
         float phaseR = RayLeighPhase(mu);
-        float phaseM = MiePhase(mu, 0.8);
+        float phaseM = MiePhase(mu, 0.96);
 
+        vec3 singleScattering = (sigma_s_r * phaseR + sigma_s_m * phaseM) * T_sun * lightVisibility;
+        
         vec3 ms = GetMultiScattering(currentPos, dot(normalize(currentPos), sunDir));
+        vec3 multiScattering = ms * (sigma_s_r + sigma_s_m);
 
-        // vec3 S = (sigma_s_r * phaseR + sigma_s_m * phaseM + ms * (sigma_s_r + sigma_s_m)) * T_sun * sunE;
-        vec3 S = ((sigma_s_r * phaseR + sigma_s_m * phaseM) + ms * (sigma_s_r + sigma_s_m)) * T_sun * sunE;
-        S*=lightVisibility;
+        vec3 S = (singleScattering + multiScattering) * sunE;
 
         L += S * T_view * dt;
         T_view *= exp(-sigma_t * dt);
@@ -188,15 +192,22 @@ void main()
     }
 
     L = L * exposure;
-    L = L / (L + vec3(1.0));
-    L = pow(L, vec3(1.0/2.2));
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    L = clamp((L * (a * L + b)) / (L * (c * L + d) + e), 0.0, 1.0);
+    L = pow(L, vec3(1.0 / 2.2));
 
     FragColor = vec4(L, T_view.g);
 
     float sunDot = dot(rayDir, uLightDir);
-    float sunIntensity = smoothstep(0.9999, 0.99995, sunDot);
+    float sunAngularRadius = 0.9999;
+    float sunIntensity = smoothstep(sunAngularRadius, sunAngularRadius + 0.0001, sunDot);
+    
     if (sunIntensity > 0.0 && !hitsGeometry && t_ground.x < 0.0)
     {
-        FragColor = mix(FragColor, vec4(1.0), sunIntensity);
+        FragColor.rgb = FragColor.rgb + (vec3(1.0) * sunIntensity * T_view);
     }
 }
