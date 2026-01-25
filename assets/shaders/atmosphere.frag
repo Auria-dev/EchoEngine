@@ -2,8 +2,10 @@
 
 out vec4 FragColor;
 in vec2 TexCoords;
+in vec3 vLocalPos;
 
 uniform sampler2D gDepth;
+uniform sampler2D gScene;
 uniform sampler2D uTransmittanceLUT;
 uniform sampler2D uMultiScatteringLUT;
 uniform sampler2D uShadowMap;
@@ -11,6 +13,8 @@ uniform vec3 viewPos; // m^-1
 uniform vec3 uLightDir;
 uniform mat4 uInvViewProj;
 uniform mat4 uLightProj;
+
+uniform bool uIsIBLPass;
 
 uniform float exposure;
 
@@ -24,8 +28,6 @@ const float RayleighAbsorption = 0.0;
 
 const float MieScattering     = 3.996 * 0.001; 
 const float MieAbsorption     = 4.40  * 0.001;
-// const float MieScattering     = 20.0 * 0.001; 
-// const float MieAbsorption     = 0.1  * 0.001;
 
 const float OzoneScattering   = 0.0;
 const vec3  OzoneAbsorption   = vec3(0.650, 1.881, 0.085) * 0.001;
@@ -118,14 +120,22 @@ void main()
 {
     float depthVal = texture(gDepth, TexCoords).r;
     vec3 worldPos = GetWorldPos(depthVal, TexCoords);
+    vec3 rayDir = normalize(worldPos - viewPos);
+
     float ditherValue = IGN(gl_FragCoord.xy);
     ditherValue = 0.0;
+
+    if (uIsIBLPass) {
+        depthVal = 1.0;
+        vec4 clip = vec4(TexCoords * 2.0 - 1.0, 1.0, 1.0);
+        vec4 view = uInvViewProj * clip;
+        rayDir = normalize(view.xyz / view.w - viewPos);
+    }
     
     vec3 camPosKM = viewPos * 0.001;
-    camPosKM.y += RGround + 0.6;
-    vec3 rayDir = normalize(worldPos - viewPos);
+    camPosKM.y += RGround + 1.6;
     float sceneDistKM = length(worldPos - viewPos) * 0.001;
-    bool hitsGeometry = depthVal < 1.0;
+    bool hitsGeometry = !uIsIBLPass && (depthVal < 1.0);
 
     vec2 t_atmo = RaySphereIntersection(camPosKM, rayDir, RTop);
     if (t_atmo.y < 0.0) {
@@ -151,7 +161,11 @@ void main()
     vec3 L = vec3(0.0);
     vec3 T_view = vec3(1.0);
     vec3 sunDir = normalize(uLightDir);
-    float sunE = 1.0;
+    float sunE = 20.0;
+
+    float mu     = dot(rayDir, sunDir);
+    float phaseR = RayLeighPhase(mu);
+    float phaseM = MiePhase(mu, 0.8);
 
     for (int i = 0; i < STEPS; ++i)
     {
@@ -174,9 +188,6 @@ void main()
         float shadow = CalculateShadow(sampleWorldPos);
         float lightVisibility = 1.0 - shadow;
 
-        float mu     = dot(rayDir, sunDir);
-        float phaseR = RayLeighPhase(mu);
-        float phaseM = MiePhase(mu, 0.96);
 
         vec3 singleScattering = (sigma_s_r * phaseR + sigma_s_m * phaseM) * T_sun * lightVisibility;
         
@@ -190,17 +201,24 @@ void main()
         currentPos += rayDir * dt;
         tCurrent += dt;
     }
+    
+    vec3 sceneColor = vec3(0.0);
+    if (!uIsIBLPass) {
+        sceneColor = texture(gScene, TexCoords).rgb;
+    }
 
-    L = L * exposure;
+    vec3 finalColor = (sceneColor * T_view) + L;
+
+    finalColor = finalColor * exposure;
     const float a = 2.51;
     const float b = 0.03;
     const float c = 2.43;
     const float d = 0.59;
     const float e = 0.14;
-    L = clamp((L * (a * L + b)) / (L * (c * L + d) + e), 0.0, 1.0);
-    L = pow(L, vec3(1.0 / 2.2));
+    finalColor = clamp((finalColor * (a * finalColor + b)) / (finalColor * (c * finalColor + d) + e), 0.0, 1.0);
+    finalColor = pow(finalColor, vec3(1.0 / 2.2));
 
-    FragColor = vec4(L, T_view.g);
+    FragColor = vec4(finalColor, T_view.g);
 
     float sunDot = dot(rayDir, uLightDir);
     float sunAngularRadius = 0.9999;

@@ -2,7 +2,7 @@
 
 void Renderer::LightingPass()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_LightingFBO);
     glViewport(0, 0, m_Width, m_Height);
     glDisable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -95,8 +95,8 @@ void Renderer::LightingPass()
     glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
-    // glActiveTexture(GL_TEXTURE7);
-    // glBindTexture(GL_TEXTURE_2D, m_PrefilteredMap);
+    glActiveTexture(GL_TEXTURE7);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_SkyProbeMap);
 
     m_GBuffer.quad.Draw();
 }

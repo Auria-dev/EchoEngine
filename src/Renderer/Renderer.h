@@ -81,6 +81,9 @@ private:
     uint m_MultiScatteringLUT, m_MultiScatteringFBO;
     uint m_PrefilteredMap;
     uint m_PostProcess;
+    uint m_LightingFBO, m_LightingResult;
+    uint m_SkyProbeMap, m_SkyProbeFBO;
+    uint m_SkyCaptureSize = 64;
     Shader* m_ForwardShader;
     Shader* m_GBufferShader;
     Shader* m_LightingShader;
@@ -105,6 +108,7 @@ private:
     uint m_TimeElapsedQuery;
 
     void GeometryPass();
+    void SkyCapture();
     void SSAOPass();
     void ShadowMapPass();
     void LightingPass();
@@ -122,7 +126,4 @@ private:
     std::unordered_map<const Texture*, std::unique_ptr<RenderTexture>> m_TextureCache;
 
     void BindMaterial(std::shared_ptr<Material> mat);
-    
-    template <auto RenderPass>
-    void TimeRenderpass(std::string name);
 };

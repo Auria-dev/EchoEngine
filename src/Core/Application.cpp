@@ -332,7 +332,7 @@ void Application::Run()
         std::unordered_map<std::string, std::chrono::nanoseconds>::iterator it;
         for (it=m_Renderer.m_PerformanceTimer.begin(); it!=m_Renderer.m_PerformanceTimer.end(); ++it)
         {
-            ImGui::Text("%-16s: %4lld microsecond(s)",it->first.c_str(), (long long)std::chrono::duration_cast<std::chrono::microseconds>(it->second).count());
+            ImGui::Text("%-16s: %4lld ms",it->first.c_str(), (long long)std::chrono::duration_cast<std::chrono::milliseconds>(it->second).count());
         }
 
         glm::vec3 camPos = m_Scene.activeCamera->GetPosition();

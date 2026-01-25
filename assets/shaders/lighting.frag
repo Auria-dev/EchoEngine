@@ -15,6 +15,7 @@ uniform sampler2D gSSAO;
 uniform sampler2D uShadowMap;
 uniform sampler2D uTransmittanceLUT;
 // uniform sampler2D uPrefilteredMap;
+uniform samplerCube uSkyProbe;
 
 #define MAX_DIR_LIGHTS 4
 #define MAX_POINT_LIGHTS 16
@@ -223,27 +224,12 @@ void main()
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - metallic;
     
-    // IBL disabled until i figure out how to properly use the atmosphere to replace IBL
+    vec3 worldNormal = normalize(vec3(uInverseView * vec4(N, 0.0)));
+    vec3 irradiance = textureLod(uSkyProbe, N, 5.0).rgb;
+    vec3 diffuse = irradiance * albedo;
 
-    // vec3 worldNormal = normalize(vec3(uInverseView * vec4(normal, 0.0)));
-    // vec3 irradiance = texture(irradianceMap, worldNormal).rgb;
-    // vec3 diffuse = irradiance * albedo;
-
-    // vec3 worldR = vec3(uInverseView * vec4(R, 0.0));
-
-    // const float MAX_REFLECTION_LOD = 4.0;
-    // vec3 prefilteredColor = textureLod(prefilterMap, worldR, roughness * MAX_REFLECTION_LOD).rgb;
-    // vec2 brdf  = texture(brdfLUT, vec2(max(dot(normal, V), 0.0), roughness)).rg;
-    // vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
-
-    // vec3 ambient = (kD * diffuse + specular) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
-    // vec3 color = ambient + Lo;
-
-    vec3 ambient = (kD * albedo) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
+    vec3 ambient = (kD * diffuse) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
     vec3 color = ambient + Lo;
-
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0/2.2));
 
     FragColor = vec4(color, 1.0);
 }

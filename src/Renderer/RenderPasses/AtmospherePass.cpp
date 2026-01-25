@@ -2,10 +2,8 @@
 
 void Renderer::AtmospherePass()
 {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_GBuffer.FBO);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBlitFramebuffer(0, 0, m_Width, m_Height, 0, 0, m_Width, m_Height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     m_AtmosphereShader->Bind();
 
@@ -20,6 +18,7 @@ void Renderer::AtmospherePass()
     m_AtmosphereShader->SetUniform3f("uLightDir", -m_Scene->m_Sun.Direction.x, -m_Scene->m_Sun.Direction.y, -m_Scene->m_Sun.Direction.z);
     m_AtmosphereShader->SetUniformMat4f("uInvViewProj", invViewProj);
     m_AtmosphereShader->SetUniformMat4f("uLightProj", m_LightProj);
+    m_AtmosphereShader->SetUniform1i("uIsIBLPass", 0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Depth);
@@ -28,12 +27,13 @@ void Renderer::AtmospherePass()
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, m_MultiScatteringLUT);
     glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, m_ShadowMap); 
+    glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, m_LightingResult);
 
+    glDisable(GL_BLEND); 
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_SRC_ALPHA);
 
     m_GBuffer.quad.Draw();
 }

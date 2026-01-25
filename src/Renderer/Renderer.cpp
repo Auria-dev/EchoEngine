@@ -189,6 +189,24 @@ void Renderer::Init(int width, int height)
 
     m_GBuffer.quad.Init();
 
+    glGenFramebuffers(1, &m_LightingFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_LightingFBO);
+
+    glGenTextures(1, &m_LightingResult);
+    glBindTexture(GL_TEXTURE_2D, m_LightingResult);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_LightingResult, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        std::cout << "Lighting Framebuffer not complete!" << std::endl;
+    }    
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     /*
     // skybox
     float cubeVertices[] = {-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  1.0f, 1.0f, -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.5f, -0.5f,  0.5f,  1.0f, 0.0f, -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, -0.5f,  0.5f, -0.5f,  0.0f, 1.0f };
@@ -400,6 +418,21 @@ void Renderer::Init(int width, int height)
     
     */
 
+    glGenTextures(1, &m_SkyProbeMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_SkyProbeMap);
+    for (unsigned int i = 0; i < 6; ++i)
+    {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, m_SkyCaptureSize, m_SkyCaptureSize, 0, GL_RGB, GL_FLOAT, nullptr);
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    // Create FBO
+    glGenFramebuffers(1, &m_SkyProbeFBO);
+
     glGenTextures(1, &m_TransmittanceLUT);
     glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 256, 64, 0, GL_RGB, GL_FLOAT, NULL);
@@ -435,7 +468,7 @@ void Renderer::Init(int width, int height)
         std::cout << "Multi Scattering Framebuffer not complete!" << std::endl;
 
     glViewport(0, 0, 32, 32);
-    m_TransmittanceShader->Bind();
+    m_MultiScatteringShader->Bind();
     m_GBuffer.quad.Draw();
     
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -449,6 +482,8 @@ void Renderer::Init(int width, int height)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, m_ShadowWidth, m_ShadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     float clampColor[] = {1.0, 1.0, 1.0, 1.0};
@@ -475,7 +510,8 @@ void Renderer::Init(int width, int height)
     m_LightingShader->SetUniform1i("gSSAO", 4);
     m_LightingShader->SetUniform1i("uShadowMap", 5);
     m_LightingShader->SetUniform1i("uTransmittanceLUT", 6);
-    m_LightingShader->SetUniform1i("uPrefilteredMap", 7);
+    m_LightingShader->SetUniform1i("uSkyProbe", 7);
+
 
     m_SSAOShader->Bind();
     m_SSAOShader->SetUniform1i("gPosition", 0);
@@ -500,6 +536,7 @@ void Renderer::Init(int width, int height)
     m_AtmosphereShader->SetUniform1i("uTransmittanceLUT", 1);
     m_AtmosphereShader->SetUniform1i("uMultiScatteringLUT", 2);
     m_AtmosphereShader->SetUniform1i("uShadowMap", 3);
+    m_AtmosphereShader->SetUniform1i("gScene", 4);
 }
 
 void Renderer::Shutdown() { }
@@ -523,19 +560,6 @@ static void DebugTextureItem(const char* label, uint32_t texID, float width = 12
     if (ImGui::GetContentRegionAvail().x < width) ImGui::NewLine();
 }
 
-template <auto RenderPass>
-void Renderer::TimeRenderpass(std::string name)
-{
-    GLuint64 elapsed = 0;
-    glBeginQuery(GL_TIME_ELAPSED, m_TimeElapsedQuery);
-
-    (this->*RenderPass)();
-    
-    glEndQuery(GL_TIME_ELAPSED);
-    glGetQueryObjectui64v(m_TimeElapsedQuery,GL_QUERY_RESULT,&elapsed);
-    m_PerformanceTimer[name] = std::chrono::nanoseconds(elapsed);
-}
-
 void Renderer::OnImGuiRender()
 {
     ImGui::Begin("GPU Texture Debugger");
@@ -547,6 +571,7 @@ void Renderer::OnImGuiRender()
         DebugTextureItem("Albedo", m_GBuffer.Albedo);
         DebugTextureItem("ARM", m_GBuffer.ARM);
         DebugTextureItem("Depth", m_GBuffer.Depth);
+        DebugTextureItem("Lighting", m_LightingResult);
     }
     
     ImGui::NewLine(); 
@@ -613,12 +638,13 @@ void Renderer::DrawScene()
         SubmitDrawCmd(*e, *m_GBufferShader);
     }
 
-    TimeRenderpass<&Renderer::GeometryPass>("Geometry pass");
-    TimeRenderpass<&Renderer::SSAOPass>("SSAO pass");
-    TimeRenderpass<&Renderer::ShadowMapPass>("Shadowmap pass");
-    TimeRenderpass<&Renderer::LightingPass>("Lighting pass");
-    TimeRenderpass<&Renderer::AtmospherePass>("Atmosphere pass"); // TODO: render at quarter resolution
-    TimeRenderpass<&Renderer::ForwardPass>("Forward pass");
+    GeometryPass();
+    SSAOPass();
+    SkyCapture();
+    ShadowMapPass();
+    LightingPass();
+    AtmospherePass();
+    ForwardPass();
 }
 
 void Renderer::Resize(int nWidth, int nHeight)
@@ -643,6 +669,9 @@ void Renderer::Resize(int nWidth, int nHeight)
 
     glBindTexture(GL_TEXTURE_2D, m_SSAOBlurBuffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, nWidth, nHeight, 0, GL_RED, GL_FLOAT, NULL);
+
+    glBindTexture(GL_TEXTURE_2D, m_LightingResult);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, nWidth, nHeight, 0, GL_RGBA, GL_FLOAT, NULL);
 
 	m_Width = nWidth;
 	m_Height = nHeight;
