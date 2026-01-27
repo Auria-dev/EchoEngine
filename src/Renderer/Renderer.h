@@ -9,6 +9,7 @@
 #include "RenderTexture.h"
 #include "Shader.h"
 #include "FullscreenQuad.h"
+#include "GPUTimer.h"
 
 #include "imgui.h"
 #include "stb_image.h"
@@ -104,8 +105,6 @@ private:
     glm::mat4 m_OrthoProj;
     glm::mat4 m_LightView;
     glm::mat4 m_LightProj;
-
-    uint m_TimeElapsedQuery;
 
     void GeometryPass();
     void SkyCapture();

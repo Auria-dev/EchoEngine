@@ -28,19 +28,20 @@ Application::Application()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
     m_WPosX = 100;
     m_WPosY = 100;
     m_WWidth = 1280;
     m_WHeight = 720;
     m_WFullscreen = false;
+    glfwWindowHint(GLFW_POSITION_X, m_WPosX);
+    glfwWindowHint(GLFW_POSITION_Y, m_WPosY);
     m_Window = glfwCreateWindow(m_WWidth, m_WHeight, "EchoEngine", nullptr, nullptr);
     if (!m_Window)
     {
         glfwTerminate();
         return;
     }
-    glfwWindowHint(GLFW_POSITION_X, m_WPosX);
-    glfwWindowHint(GLFW_POSITION_Y, m_WPosY);
     
     glfwMakeContextCurrent(m_Window);
     glfwSwapInterval(0);
@@ -322,19 +323,12 @@ void Application::Run()
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
         ImGui::Begin("Performance");
         float fps = 1.0/m_DeltaTime;
-        ImGui::Text("%.3f ms (%.1f FPS)", m_DeltaTime, fps);
+        ImGui::Text("%.3f ms (%.1f FPS)", m_DeltaTime*1000.0, fps);
         static float fpsHistory[100] = { 0 };
         static int fpsHistoryIndex = 0;
         fpsHistory[fpsHistoryIndex] = fps;
         fpsHistoryIndex = (fpsHistoryIndex + 1) % 100;
         ImGui::PlotLines("FPS", fpsHistory, IM_ARRAYSIZE(fpsHistory), fpsHistoryIndex, nullptr, 0.0f, 100.0f, ImVec2(0, 80));
-        ImGui::NewLine();
-        std::unordered_map<std::string, std::chrono::nanoseconds>::iterator it;
-        for (it=m_Renderer.m_PerformanceTimer.begin(); it!=m_Renderer.m_PerformanceTimer.end(); ++it)
-        {
-            ImGui::Text("%-16s: %4lld ms",it->first.c_str(), (long long)std::chrono::duration_cast<std::chrono::milliseconds>(it->second).count());
-        }
-
         glm::vec3 camPos = m_Scene.activeCamera->GetPosition();
         glm::vec3 camFront = m_Scene.activeCamera->GetFront();
         ImGui::DragFloat("Move speed", &m_Scene.activeCamera->m_MovementSpeed, 0.1f, 0.01f, 400.0f);
@@ -344,9 +338,53 @@ void Application::Run()
 
         ImGui::End();
 
-        // ImGui::Begin("Style editor");        
-        // ImGui::ShowStyleEditor();
-        // ImGui::End();
+        ImGui::Begin("GPU Profiler");
+
+        auto& timerMap = RenderProfiler::GetTimerMap();
+        auto& frameOrder = RenderProfiler::GetFrameOrder();
+
+        float totalMs = 0.0f;
+        for (const auto& name : frameOrder) totalMs += timerMap[name].TimeMs;
+
+        ImGui::Text("Total Frame: %.3f ms", totalMs);
+
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float width = ImGui::GetContentRegionAvail().x;
+        float height = 30.0f;
+
+        if (width > 10.0f && !frameOrder.empty())
+        {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            float targetMs = std::max(8.333f, totalMs);
+            float currentX = 0.0f;
+
+            dl->AddRectFilled(pos, ImVec2(pos.x + width, pos.y + height), ImColor(40, 40, 40), 5.0f);
+            ImGui::InvisibleButton("##bar", ImVec2(width, height));
+
+            for (const auto& name : frameOrder)
+            {
+                auto& timer = timerMap[name];
+                float w = (timer.TimeMs / targetMs) * width;
+                if (w < 1.0f) continue;
+
+                dl->AddRectFilled(ImVec2(pos.x + currentX, pos.y), ImVec2(pos.x + currentX + w, pos.y + height), timer.Color);
+                
+                if (ImGui::IsMouseHoveringRect(ImVec2(pos.x + currentX, pos.y), ImVec2(pos.x + currentX + w, pos.y + height)))
+                {
+                    ImGui::SetTooltip("%s: %.3f ms", name.c_str(), timer.TimeMs);
+                }
+                currentX += w;
+            }
+        }
+
+        for (const auto& name : frameOrder)
+        {
+            auto& timer = timerMap[name];
+            ImGui::TextColored(timer.Color, "%-15s: %.3f ms", name.c_str(), timer.TimeMs);
+        }
+
+        frameOrder.clear(); 
+        ImGui::End();
 
         ImGui::Begin("Scene Inspector");
         ImGui::Text("Sun parameters");

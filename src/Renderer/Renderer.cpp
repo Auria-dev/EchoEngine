@@ -50,8 +50,6 @@ void Renderer::Init(int width, int height)
     m_MultiScatteringShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/multi_scattering.frag");
     m_ShadowMapShader = new Shader("assets/shaders/shadow_map.vert", "assets/shaders/shadow_map.frag");
 
-    glGenQueries(1, &m_TimeElapsedQuery);
-
     // glEnable(GL_BLEND);
 	// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -512,7 +510,6 @@ void Renderer::Init(int width, int height)
     m_LightingShader->SetUniform1i("uTransmittanceLUT", 6);
     m_LightingShader->SetUniform1i("uSkyProbe", 7);
 
-
     m_SSAOShader->Bind();
     m_SSAOShader->SetUniform1i("gPosition", 0);
     m_SSAOShader->SetUniform1i("gNormal", 1);
@@ -637,14 +634,14 @@ void Renderer::DrawScene()
     {
         SubmitDrawCmd(*e, *m_GBufferShader);
     }
-
-    GeometryPass();
-    SSAOPass();
-    SkyCapture();
-    ShadowMapPass();
-    LightingPass();
-    AtmospherePass();
-    ForwardPass();
+    
+    { ProfileScope p("Geometry"); GeometryPass(); }
+    { ProfileScope p("SSAO"); SSAOPass(); }
+    { ProfileScope p("SkyCap"); SkyCapture(); }
+    { ProfileScope p("ShadowMap"); ShadowMapPass(); }
+    { ProfileScope p("Lighting"); LightingPass(); }
+    { ProfileScope p("Atmosphere"); AtmospherePass(); }
+    { ProfileScope p("Forward"); ForwardPass(); }
 }
 
 void Renderer::Resize(int nWidth, int nHeight)

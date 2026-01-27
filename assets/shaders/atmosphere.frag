@@ -89,18 +89,10 @@ float CalculateShadow(vec3 worldPos)
     }
 
     float currentDepth = projCoords.z;
-    
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(uShadowMap, 0);
-    for(int x = -1; x <= 1; ++x)
-    {
-        for(int y = -1; y <= 1; ++y)
-        {
-            float pcfDepth = texture(uShadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - 0.0005 > pcfDepth ? 1.0 : 0.0;        
-        }    
-    }
-    return shadow / 9.0;
+    float closestDepth = texture(uShadowMap, projCoords.xy).r;
+    float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+
+    return shadow;
 }
 
 float RayLeighPhase(float cosTheta) { return 3.0 * (1 + (cosTheta*cosTheta)) / (16.0 * PI); } // p_r
@@ -123,7 +115,6 @@ void main()
     vec3 rayDir = normalize(worldPos - viewPos);
 
     float ditherValue = IGN(gl_FragCoord.xy);
-    ditherValue = 0.0;
 
     if (uIsIBLPass) {
         depthVal = 1.0;
@@ -156,7 +147,7 @@ void main()
     const int STEPS = 32;
     float dt = (tEnd - tStart) / float(STEPS);
     vec3 currentPos = camPosKM + rayDir * (tStart + dt * 0.5);
-    float tCurrent = tStart + dt*ditherValue; 
+    float tCurrent = tStart + (dt*ditherValue);
 
     vec3 L = vec3(0.0);
     vec3 T_view = vec3(1.0);
