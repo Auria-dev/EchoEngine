@@ -144,8 +144,8 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
     
     if(projCoords.z > 1.0) return 0.0;
         
-    // float bias = max(0.00001 * (1.0 - dot(normal, lightDir)), 0.00001);
-    float bias = 0.0;
+    float bias = max(0.003 * (1.0 - dot(normal, lightDir)), 0.0003);
+    // float bias = 0.0;
     
     float shadow = 0.0;
     int sampleRadius = 4;
