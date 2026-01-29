@@ -84,7 +84,7 @@ private:
     uint m_PostProcess;
     uint m_LightingFBO, m_LightingResult;
     uint m_SkyProbeMap, m_SkyProbeFBO;
-    uint m_SkyCaptureSize = 64;
+    uint m_SkyCaptureSize = 128;
     Shader* m_ForwardShader;
     Shader* m_GBufferShader;
     Shader* m_LightingShader;

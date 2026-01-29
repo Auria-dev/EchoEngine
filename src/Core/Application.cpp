@@ -296,10 +296,9 @@ void Application::Run()
     t.SetYaw(54.03);
     t.m_MovementSpeed = 10.0f;
     
-    
     m_Scene.m_Sun.Direction = glm::normalize(glm::vec3(-0.26, -0.56, -0.78));
     m_Scene.m_Sun.Color = glm::vec3(1.0f, 1.0f, 1.0f);
-    m_Scene.m_Sun.Intensity = 1.0f;
+    m_Scene.m_Sun.Intensity = 20.0f;
 
     m_Scene.activeCamera = &t;
     m_Scene.activeCamera->SetProjectionMatrix((float)m_WWidth / (float)m_WHeight, m_Scene.activeCamera->GetNear(), m_Scene.activeCamera->GetFar());

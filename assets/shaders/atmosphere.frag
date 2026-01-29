@@ -41,6 +41,19 @@ float IGN(vec2 uv)
     return mod(52.9829189 * mod(0.06711056*uv.x + 0.00583715*uv.y, 1.0), 1.0);
 }
 
+const float bayer4x4[16] = float[](
+    0.0/16.0, 12.0/16.0, 3.0/16.0, 15.0/16.0,
+    8.0/16.0, 4.0/16.0, 11.0/16.0, 7.0/16.0,
+    2.0/16.0, 14.0/16.0, 1.0/16.0, 13.0/16.0,
+    10.0/16.0, 6.0/16.0, 9.0/16.0, 5.0/16.0
+);
+
+float GetBayer4x4(vec2 uv) {
+    int x = int(mod(uv.x, 4.0));
+    int y = int(mod(uv.y, 4.0));
+    return bayer4x4[y * 4 + x];
+}
+
 vec3 GetWorldPos(float depth, vec2 uv) {
     float z = depth * 2.0 - 1.0;
     vec4 clip = vec4(uv * 2.0 - 1.0, z, 1.0);
@@ -144,7 +157,7 @@ void main()
     vec2 t_ground = RaySphereIntersection(camPosKM, rayDir, RGround);
     if (t_ground.x > 0.0) tEnd = min(tEnd, t_ground.x);
 
-    const int STEPS = 32;
+    int STEPS = hitsGeometry ? 16 : 32;
     float dt = (tEnd - tStart) / float(STEPS);
     vec3 currentPos = camPosKM + rayDir * (tStart + dt * 0.5);
     float tCurrent = tStart + (dt*ditherValue);
@@ -157,16 +170,23 @@ void main()
     float mu     = dot(rayDir, sunDir);
     float phaseR = RayLeighPhase(mu);
     float phaseM = MiePhase(mu, 0.8);
+    float tPrev = tStart;
 
     for (int i = 0; i < STEPS; ++i)
     {
+        float p = (float(i) + ditherValue) / float(STEPS);
+        float tCurrent = tStart + (tEnd - tStart) * (p * p);
+        float dt = tCurrent - tPrev;
+        dt = max(dt, 0.00001);
+        vec3 currentPos = camPosKM + rayDir * (tPrev + dt * 0.5);
+
         float h = length(currentPos) - RGround;
 
         float d_r = RayleighAltitudeDensityDistribution(h);
         float d_m = MieAltitudeDensityDistribution(h);
         float d_o = OzongAltitureDensityDistribution(h);
 
-        vec3 sigma_s_r = RayleighScattering  * d_r;
+        vec3 sigma_s_r = RayleighScattering * d_r;
         vec3 sigma_s_m = vec3(MieScattering) * d_m;
         vec3 sigma_t   = (RayleighExtinction * d_r) +
                          (MieExtinction      * d_m) +
@@ -174,11 +194,12 @@ void main()
 
         vec3 T_sun = GetTransmittanceFromLUT(currentPos, sunDir);
 
-        float distFromCamMeters = (tCurrent - tStart) * 1000.0;
+        float distFromCamMeters = (length(currentPos - camPosKM)) * 1000.0;
         vec3 sampleWorldPos = viewPos + (rayDir * distFromCamMeters);
+        
         float shadow = CalculateShadow(sampleWorldPos);
         float lightVisibility = 1.0 - shadow;
-
+        if (uIsIBLPass) lightVisibility = 1.0;
 
         vec3 singleScattering = (sigma_s_r * phaseR + sigma_s_m * phaseM) * T_sun * lightVisibility;
         
@@ -189,8 +210,8 @@ void main()
 
         L += S * T_view * dt;
         T_view *= exp(-sigma_t * dt);
-        currentPos += rayDir * dt;
-        tCurrent += dt;
+        
+        tPrev = tCurrent;
     }
     
     vec3 sceneColor = vec3(0.0);
@@ -200,22 +221,24 @@ void main()
 
     vec3 finalColor = (sceneColor * T_view) + L;
 
-    finalColor = finalColor * exposure;
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
-    finalColor = clamp((finalColor * (a * finalColor + b)) / (finalColor * (c * finalColor + d) + e), 0.0, 1.0);
-    finalColor = pow(finalColor, vec3(1.0 / 2.2));
-
+    if (!uIsIBLPass) {
+        finalColor = finalColor * exposure;
+        const float a = 2.51;
+        const float b = 0.03;
+        const float c = 2.43;
+        const float d = 0.59;
+        const float e = 0.14;
+        finalColor = clamp((finalColor * (a * finalColor + b)) / (finalColor * (c * finalColor + d) + e), 0.0, 1.0);
+        finalColor = pow(finalColor, vec3(1.0 / 2.2));
+    }
+    
     FragColor = vec4(finalColor, T_view.g);
 
     float sunDot = dot(rayDir, uLightDir);
     float sunAngularRadius = 0.9999;
     float sunIntensity = smoothstep(sunAngularRadius, sunAngularRadius + 0.0001, sunDot);
     
-    if (sunIntensity > 0.0 && !hitsGeometry && t_ground.x < 0.0)
+    if (sunIntensity > 0.0 && !hitsGeometry && t_ground.x < 0.0 && !uIsIBLPass)
     {
         FragColor.rgb = FragColor.rgb + (vec3(1.0) * sunIntensity * T_view);
     }

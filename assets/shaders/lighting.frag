@@ -144,10 +144,11 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
     
     if(projCoords.z > 1.0) return 0.0;
         
-    float bias = max(0.003 * (1.0 - dot(normal, lightDir)), 0.0003);
+    // float bias = max(0.00001 * (1.0 - dot(normal, lightDir)), 0.00001);
+    float bias = 0.0;
     
     float shadow = 0.0;
-    int sampleRadius = 2;
+    int sampleRadius = 4;
     vec2 texelSize = 1.0 / textureSize(uShadowMap, 0);
     for(int y = -sampleRadius; y <= sampleRadius; y++)
     {
@@ -232,4 +233,8 @@ void main()
     vec3 color = ambient + Lo;
 
     FragColor = vec4(color, 1.0);
+
+    // vec3 R = reflect(normalize(worldPos - camPos), N);
+    // vec3 envColor = textureLod(uSkyProbe, R, 0.0).rgb;
+    // FragColor = vec4(envColor, 1.0);
 }
