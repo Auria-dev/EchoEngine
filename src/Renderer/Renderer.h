@@ -75,7 +75,7 @@ private:
     // TODO: clean this up...
     uint m_SSAOFBO, m_SSAOBlurFBO, m_SSAONoise;
     uint m_SSAOColorBuffer, m_SSAOBlurBuffer;
-    uint m_ShadowMapFBO, m_ShadowMap, m_ShadowWidth, m_ShadowHeight;
+    uint m_ShadowMapFBO, m_ShadowMapTexture, m_ShadowMapResolution, m_ShadowMapSplit;
     // uint m_SkyboxTexture, m_IrradianceMap, m_EnvCubemap, m_SkyboxVAO, m_SkyboxVBO, m_CubeVAO, m_CubeVBO, m_CaptureFBO, m_CaptureRBO, m_PrefilterMap, m_BRDFLUTTexture;
     uint m_Width, m_Height;
     uint m_TransmittanceLUT, m_TransmittanceFBO;
@@ -84,7 +84,7 @@ private:
     uint m_PostProcess;
     uint m_LightingFBO, m_LightingResult;
     uint m_SkyProbeMap, m_SkyProbeFBO;
-    uint m_SkyCaptureSize = 128;
+    uint m_SkyCaptureSize;
     Shader* m_ForwardShader;
     Shader* m_GBufferShader;
     Shader* m_LightingShader;
@@ -101,10 +101,10 @@ private:
     Shader* m_ShadowMapShader;
     Shader* m_PostProcessShader;
     
-    float m_LightDistance;
-    glm::mat4 m_OrthoProj;
-    glm::mat4 m_LightView;
-    glm::mat4 m_LightProj;
+    float m_ShadowCascadeLevelOne, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelThree, m_ShadowCascadeLevelFour;
+    std::vector<float> m_ShadowCascadeLevels;
+    std::vector<glm::mat4> m_ShadowCascadeMatrices;
+    std::vector<uint> m_ShadowMapDebugTextures;
 
     void GeometryPass();
     void SkyCapture();
@@ -113,6 +113,10 @@ private:
     void LightingPass();
     void AtmospherePass();
     void ForwardPass();
+
+    void ShadowMapInit();
+    std::vector<glm::vec4> GetFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view);
+    glm::mat4 GetLightSpaceMatrix(const float nearPlane, const float farPlane);
 
     float m_Exposure;
 

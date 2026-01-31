@@ -75,7 +75,18 @@ void Renderer::LightingPass()
     m_LightingShader->SetUniform1i("uPointLightCount", pointLightCount);
     m_LightingShader->SetUniform1i("uSpotLightCount", spotLightCount);
     m_LightingShader->SetUniformMat4f("uInverseView", glm::inverse(m_Scene->activeCamera->GetViewMatrix()));
-    m_LightingShader->SetUniformMat4f("uLightProj", m_LightProj);
+    m_LightingShader->SetUniformMat4f("uView", m_Scene->activeCamera->GetViewMatrix());
+    m_LightingShader->SetUniform1i("uCascadeCount", m_ShadowCascadeLevels.size() - 1); 
+    for (size_t i = 1; i < m_ShadowCascadeLevels.size(); ++i)
+    {
+        std::string name = "uCascadePlaneDistances[" + std::to_string(i - 1) + "]";
+        m_LightingShader->SetUniform1f(name, m_ShadowCascadeLevels[i]);
+    }
+    for (size_t i = 0; i < m_ShadowCascadeMatrices.size(); ++i)
+    {
+        std::string name = "uCascadeMatrices[" + std::to_string(i) + "]";
+        m_LightingShader->SetUniformMat4f(name, m_ShadowCascadeMatrices[i]);
+    }
 
     m_LightingShader->SetUniform3f("uSunDirection", m_Scene->m_Sun.Direction.x, m_Scene->m_Sun.Direction.y, m_Scene->m_Sun.Direction.z);
     m_LightingShader->SetUniform3f("uSunColor",     m_Scene->m_Sun.Color.x, m_Scene->m_Sun.Color.y, m_Scene->m_Sun.Color.z);
@@ -92,7 +103,7 @@ void Renderer::LightingPass()
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, m_SSAOBlurBuffer);
     glActiveTexture(GL_TEXTURE5);
-    glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, m_ShadowMapTexture);
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
     glActiveTexture(GL_TEXTURE7);

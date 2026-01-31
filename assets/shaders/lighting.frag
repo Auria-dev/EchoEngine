@@ -12,9 +12,14 @@ uniform sampler2D gSSAO;
 // uniform samplerCube irradianceMap;
 // uniform samplerCube prefilterMap;
 // uniform sampler2D brdfLUT;
-uniform sampler2D uShadowMap;
-uniform sampler2D uTransmittanceLUT;
+
+uniform sampler2DArrayShadow uShadowMap;
+uniform int uCascadeCount;
+uniform float uCascadePlaneDistances[16];
+uniform mat4 uCascadeMatrices[16];
+
 // uniform sampler2D uPrefilteredMap;
+uniform sampler2D uTransmittanceLUT;
 uniform samplerCube uSkyProbe;
 
 #define MAX_DIR_LIGHTS 4
@@ -59,11 +64,10 @@ uniform vec3  uSunDirection;
 uniform vec3  uSunColor;
 uniform float uSunIntensity;
 
-// uniform int uDirLightCount;
 uniform int uPointLightCount;
 uniform int uSpotLightCount;
 uniform mat4 uInverseView;
-uniform mat4 uLightProj;
+uniform mat4 uView;
 
 const float PI = 3.14159265359;
 
@@ -137,30 +141,67 @@ vec3 CalculatePBRLighting(vec3 L, vec3 V, vec3 N, vec3 radiance, vec3 albedo, fl
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
-float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+float SampleShadowMap(int layer, vec3 fragPosWorld, vec3 normal, vec3 lightDir)
 {
+    vec4 fragPosLightSpace = uCascadeMatrices[layer] * vec4(fragPosWorld, 1.0);
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
+
+    if (projCoords.z > 1.0) return 0.0;
+
+    float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0005);
+    if (layer == uCascadeCount - 1) bias *= 0.5;
     
-    if(projCoords.z > 1.0) return 0.0;
-        
-    float bias = max(0.003 * (1.0 - dot(normal, lightDir)), 0.0003);
-    // float bias = 0.0;
+    float currentDepth = projCoords.z;
     
-    float shadow = 0.0;
-    int sampleRadius = 4;
-    vec2 texelSize = 1.0 / textureSize(uShadowMap, 0);
+    float shadow = 0.0;    
+    vec2 texSize = textureSize(uShadowMap, 0).xy;
+    vec2 texelSize = 1.0 / texSize;
+    
+    int sampleRadius = 1; 
     for(int y = -sampleRadius; y <= sampleRadius; y++)
     {
         for(int x = -sampleRadius; x <= sampleRadius; x++)
         {
-            float closestDepth = texture(uShadowMap, projCoords.xy + vec2(x,y) * texelSize).r;
-            if (projCoords.z > closestDepth + bias)
-                shadow += 1.0f;
+            vec4 coords = vec4(projCoords.xy + vec2(x, y) * texelSize, layer, currentDepth - bias);
+            shadow += texture(uShadowMap, coords); 
         }    
     }
-    shadow /= pow((sampleRadius*2+1), 2);
     
+    shadow /= pow((sampleRadius * 2 + 1), 2);
+    
+    return 1.0 - shadow; 
+}
+
+float ShadowCalculation(vec3 fragPosWorld, vec3 normal, vec3 lightDir)
+{
+    vec4 fragPosView = uView * vec4(fragPosWorld, 1.0);
+    float depthValue = abs(fragPosView.z);
+
+    int layer = -1;
+    for (int i = 0; i < uCascadeCount; ++i)
+    {
+        if (depthValue < uCascadePlaneDistances[i])
+        {
+            layer = i;
+            break;
+        }
+    }
+    if (layer == -1) layer = uCascadeCount - 1;
+
+    float shadow = SampleShadowMap(layer, fragPosWorld, normal, lightDir);
+    float blendDistance = 20.0; 
+    
+    float nextSplitDistance = uCascadePlaneDistances[layer];
+    float distToNextSplit = nextSplitDistance - depthValue;
+
+    if (distToNextSplit < blendDistance && layer < uCascadeCount - 1)
+    {
+        float blendFactor = (blendDistance - distToNextSplit) / blendDistance;
+        float nextShadow = SampleShadowMap(layer + 1, fragPosWorld, normal, lightDir);
+        shadow = mix(shadow, nextShadow, blendFactor);
+    }
+
     return shadow;
 }
 
@@ -193,8 +234,7 @@ void main()
 
     vec3 sunL = normalize(-uSunDirection);
     vec3 sunTransmittance = GetTransmittance(fragPosKM, sunL);
-    vec4 fragPosLightSpace = uLightProj * vec4(worldPos, 1.0);
-    float shadow = ShadowCalculation(fragPosLightSpace, N, sunL); 
+    float shadow = ShadowCalculation(worldPos, N, sunL);
     vec3 sunRadiance = uSunColor * uSunIntensity * sunTransmittance;
     vec3 lightContribution = CalculatePBRLighting(sunL, V, N, sunRadiance, albedo, roughness, metallic, F0);
     Lo += (1.0 - shadow) * lightContribution;
@@ -237,4 +277,39 @@ void main()
     // vec3 R = reflect(normalize(worldPos - camPos), N);
     // vec3 envColor = textureLod(uSkyProbe, R, 0.0).rgb;
     // FragColor = vec4(envColor, 1.0);
+
+    // CSM debugging    
+    // vec4 fragPosViewDebug = uView * vec4(worldPos, 1.0);
+    // float depthValueDebug = abs(fragPosViewDebug.z);
+
+    // int debugLayer = -1;
+    // for (int i = 0; i < uCascadeCount; ++i)
+    // {
+    //     if (depthValueDebug < uCascadePlaneDistances[i])
+    //     {
+    //         debugLayer = i;
+    //         break;
+    //     }
+    // }
+    // if (debugLayer == -1) debugLayer = uCascadeCount - 1;
+
+    // vec3 colors[5];
+    // colors[0] = vec3(1.0, 0.2, 0.2); // Red
+    // colors[1] = vec3(0.2, 1.0, 0.2); // Green
+    // colors[2] = vec3(0.2, 0.2, 1.0); // Blue
+    // colors[3] = vec3(1.0, 1.0, 0.2); // Yellow
+    // colors[4] = vec3(0.2, 1.0, 1.0); // Cyan
+    
+    // vec3 debugColor = colors[debugLayer];
+    // float debugBlendDist = 20.0; 
+    // float distToNextSplit = uCascadePlaneDistances[debugLayer] - depthValueDebug;
+
+    // if (distToNextSplit < debugBlendDist && debugLayer < uCascadeCount - 1)
+    // {
+    //     float blendFactor = (debugBlendDist - distToNextSplit) / debugBlendDist;
+    //     debugColor = mix(colors[debugLayer], colors[debugLayer + 1], blendFactor);
+    // }
+
+
+    // if (TexCoords.x < 0.5) FragColor = vec4(debugColor * (1.0 - (shadow * 0.5)), 1.0); 
 }

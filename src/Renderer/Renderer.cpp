@@ -417,6 +417,7 @@ void Renderer::Init(int width, int height)
     */
 
     glGenTextures(1, &m_SkyProbeMap);
+    m_SkyCaptureSize = 128;
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_SkyProbeMap);
     for (unsigned int i = 0; i < 6; ++i)
     {
@@ -469,36 +470,10 @@ void Renderer::Init(int width, int height)
     m_MultiScatteringShader->Bind();
     m_GBuffer.quad.Draw();
     
+    ShadowMapInit();
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, m_Width, m_Height);
-
-    glGenFramebuffers(1, &m_ShadowMapFBO);
-    m_ShadowWidth = 2048;
-    m_ShadowHeight = 2048;
-    glGenTextures(1, &m_ShadowMap);
-    glBindTexture(GL_TEXTURE_2D, m_ShadowMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, m_ShadowWidth, m_ShadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float clampColor[] = {1.0, 1.0, 1.0, 1.0};
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, clampColor);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, m_ShadowMapFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_ShadowMap, 0);
-    glDrawBuffer(GL_NONE); // no color
-    glReadBuffer(GL_NONE); // no color
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    
-    // todo: move this to its own shadowmap class
-    float testSize = 2300.0f;
-    m_OrthoProj = glm::ortho(-testSize, testSize, -testSize, testSize, 0.001f, 10000.0f);
-    m_LightView = glm::lookAt(glm::vec3(-2.0f, 6.0f, -1.0f), glm::vec3(0.0f), glm::vec3(0.0f,1.0f,0.0f));
-    m_LightProj = m_OrthoProj * m_LightView;
-    m_LightDistance = 7000.0f;
 
     m_LightingShader->Bind();
     m_LightingShader->SetUniform1i("gPosition", 0);
@@ -578,9 +553,25 @@ void Renderer::OnImGuiRender()
         DebugTextureItem("SSAO Raw", m_SSAOColorBuffer);
         DebugTextureItem("SSAO Blur", m_SSAOBlurBuffer);
         // DebugTextureItem("BRDF LUT", m_BRDFLUTTexture, 128,128);
-        DebugTextureItem("Shadowmap", m_ShadowMap, 128,128);
+
         ImGui::NewLine();
-        ImGui::DragFloat("Shadowmap distance", &m_LightDistance, 1.0f, 20.0f, 300.0f);
+        if (ImGui::TreeNode("Cascaded Shadow Maps"))
+        {
+            for (uint i = 0; i < m_ShadowMapDebugTextures.size(); ++i)
+            {
+                std::string label = "Cascade " + std::to_string(i);
+                DebugTextureItem(label.c_str(), m_ShadowMapDebugTextures[i], 150, 150);
+                if (i < m_ShadowMapDebugTextures.size() - 1) ImGui::SameLine();
+            }
+            ImGui::NewLine();
+            ImGui::Text("%d cascades", m_ShadowCascadeLevels.size());
+            ImGui::DragFloat("First cascade dist", &m_ShadowCascadeLevelOne, 1.0, 0.0f, m_ShadowCascadeLevelTwo);
+            ImGui::DragFloat("Second cascade dist", &m_ShadowCascadeLevelTwo, 1.0, m_ShadowCascadeLevelOne, m_ShadowCascadeLevelThree);
+            ImGui::DragFloat("Third cascade dist", &m_ShadowCascadeLevelThree, 1.0, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelFour);
+            ImGui::DragFloat("Fourth cascade dist", &m_ShadowCascadeLevelFour, 1.0, m_ShadowCascadeLevelThree, 10000.0f);
+            ImGui::TreePop();
+        }
+        ImGui::NewLine();
         DebugTextureItem("Transmittance LUT", m_TransmittanceLUT, 256, 64);
         ImGui::NewLine();
         ImGui::DragFloat("Exposure", &m_Exposure, 0.05, 0.0, 3.0);
@@ -726,8 +717,9 @@ void Renderer::SubmitDrawCmd(const Entity& entity, Shader& shader)
             glm::vec4 viewCenter  = m_Scene->activeCamera->GetViewMatrix() * worldCenter;
             item.depth = -viewCenter.z;
             
-            if (mat->Translucent) m_ForwardQueue.push_back(item);
-            else                  m_DeferredQueue.push_back(item);
+            m_DeferredQueue.push_back(item);
+            // if (mat->Translucent) m_ForwardQueue.push_back(item);
+            // else                  m_DeferredQueue.push_back(item);
         }
     }
 }

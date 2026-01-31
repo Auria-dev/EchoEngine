@@ -272,7 +272,7 @@ void Application::Run()
     // room.LoadFromOBJ("assets/models/room.obj");
     // room.Translate(glm::vec3(3.3f, 2.5f, 0.0f));
     // room.Rotate(glm::vec3(0.0f, 20.0f, 0.0f));
-    // m_Scene.Entities.push_back(&room);
+    // m_Scene.m_Entities.push_back(&room);
     
     Entity ground;
     ground.LoadFromOBJ("assets/models/terrain.obj");
@@ -282,7 +282,7 @@ void Application::Run()
     // Entity BistroExt;
     // BistroExt.LoadFromOBJ("assets/models/heavy/BistroExterior.obj");
     // BistroExt.SetScale(glm::vec3(0.01, 0.01, 0.01));
-    // BistroExt.SetPosition(glm::vec3(-89.0, 132.0, -867.0));
+    // // BistroExt.SetPosition(glm::vec3(-89.0, 132.0, -867.0));
     // m_Scene.m_Entities.push_back(&BistroExt);
 
     // Entity BistroInt;
@@ -294,7 +294,7 @@ void Application::Run()
     t.SetPosition(glm::vec3(-109.0, 152.0, -867.0));
     t.SetPitch(6.0);
     t.SetYaw(54.03);
-    t.m_MovementSpeed = 10.0f;
+    t.m_MovementSpeed = 200.0f;
     
     m_Scene.m_Sun.Direction = glm::normalize(glm::vec3(-0.26, -0.56, -0.78));
     m_Scene.m_Sun.Color = glm::vec3(1.0f, 1.0f, 1.0f);

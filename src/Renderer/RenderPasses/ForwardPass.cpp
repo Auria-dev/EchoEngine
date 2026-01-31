@@ -12,6 +12,7 @@ void Renderer::ForwardPass()
 
     glEnable(GL_BLEND);
     glDisable(GL_CULL_FACE);
+    glCullFace(GL_NONE);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE); 
 

@@ -8,7 +8,11 @@ uniform sampler2D gDepth;
 uniform sampler2D gScene;
 uniform sampler2D uTransmittanceLUT;
 uniform sampler2D uMultiScatteringLUT;
-uniform sampler2D uShadowMap;
+
+uniform sampler2DArrayShadow uShadowMap;
+uniform mat4 uCascadeMatrices[16];
+uniform int uCascadeCount;
+
 uniform vec3 viewPos; // m^-1
 uniform vec3 uLightDir;
 uniform mat4 uInvViewProj;
@@ -93,19 +97,24 @@ vec3 GetMultiScattering(vec3 pos, float cosSunZenith)
 
 float CalculateShadow(vec3 worldPos)
 {
-    vec4 fragPosLightSpace = uLightProj * vec4(worldPos, 1.0);
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;
-    if(projCoords.z > 1.0 || projCoords.x > 1.0 || projCoords.x < 0.0 || projCoords.y > 1.0 || projCoords.y < 0.0)
+    float bias = 0.005; 
+    
+    for(int i = 0; i < uCascadeCount; ++i)
     {
-        return 0.0;
+        vec4 fragPosLightSpace = uCascadeMatrices[i] * vec4(worldPos, 1.0);
+        vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        projCoords = projCoords * 0.5 + 0.5;
+
+        if(projCoords.x >= 0.0 && projCoords.x <= 1.0 && 
+           projCoords.y >= 0.0 && projCoords.y <= 1.0 && 
+           projCoords.z >= 0.0 && projCoords.z <= 1.0)
+        {
+            vec4 uv = vec4(projCoords.xy, i, projCoords.z - bias);
+            return texture(uShadowMap, uv);
+        }
     }
 
-    float currentDepth = projCoords.z;
-    float closestDepth = texture(uShadowMap, projCoords.xy).r;
-    float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
-
-    return shadow;
+    return 1.0; 
 }
 
 float RayLeighPhase(float cosTheta) { return 3.0 * (1 + (cosTheta*cosTheta)) / (16.0 * PI); } // p_r
@@ -197,8 +206,7 @@ void main()
         float distFromCamMeters = (length(currentPos - camPosKM)) * 1000.0;
         vec3 sampleWorldPos = viewPos + (rayDir * distFromCamMeters);
         
-        float shadow = CalculateShadow(sampleWorldPos);
-        float lightVisibility = 1.0 - shadow;
+        float lightVisibility = CalculateShadow(sampleWorldPos);
         if (uIsIBLPass) lightVisibility = 1.0;
 
         vec3 singleScattering = (sigma_s_r * phaseR + sigma_s_m * phaseM) * T_sun * lightVisibility;
