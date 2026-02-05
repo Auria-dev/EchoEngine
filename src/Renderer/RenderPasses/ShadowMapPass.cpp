@@ -63,13 +63,11 @@ glm::mat4 Renderer::GetLightSpaceMatrix(const float nearPlane, const float farPl
     centerLS /= texelsPerUnit;
 
     glm::vec3 centerWorld = glm::vec3(glm::inverse(tempLightView) * glm::vec4(centerLS, 1.0f));
-
-    float farShadowRenderDistance = 3000.0f; 
     
     glm::mat4 lightProjection = glm::ortho(
         -radius, radius,
         -radius, radius,
-        -farShadowRenderDistance,
+        -m_FarShadowRenderDistance,
         radius
     );
 
@@ -84,10 +82,11 @@ glm::mat4 Renderer::GetLightSpaceMatrix(const float nearPlane, const float farPl
 
 void Renderer::ShadowMapInit()
 {
-    m_ShadowCascadeLevelOne   = 50.0f;
-    m_ShadowCascadeLevelTwo   = 200.0f;
-    m_ShadowCascadeLevelThree = 1000.0f;
-    m_ShadowCascadeLevelFour  = 2500.0f;
+    m_ShadowCascadeLevelOne   = 100.0f;
+    m_ShadowCascadeLevelTwo   = 1000.0f;
+    m_ShadowCascadeLevelThree = 2000.0f;
+    m_ShadowCascadeLevelFour  = 4000.0f;
+    m_FarShadowRenderDistance = 8000.0f;
 
     m_ShadowMapSplit = 5;
     m_ShadowMapResolution = 2048;

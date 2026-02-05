@@ -65,6 +65,10 @@ endif()
 add_library(STBImage STATIC ${STB_IMPL_FILE})
 target_include_directories(STBImage PUBLIC vendor/stb_image)
 
+set(MESHOPT_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(MESHOPT_BUILD_DEMO OFF CACHE BOOL "" FORCE)
+add_subdirectory(vendor/meshoptimizer)
+
 file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS 
     "src/*.h" 
     "src/*.cpp" 
@@ -94,6 +98,7 @@ target_link_libraries(${PROJECT_NAME}
     glm::glm 
     ImGui
     STBImage
+    meshoptimizer
 )
 
 if (UNIX AND NOT APPLE)

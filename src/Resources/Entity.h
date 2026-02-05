@@ -32,6 +32,7 @@ public:
 	void Scale(const glm::vec3& factor);
 
 	void LoadFromOBJ(const std::string& path);
+	void LoadFromEMesh(const std::string& path);
 private:
 	void UpdateTransform();
 

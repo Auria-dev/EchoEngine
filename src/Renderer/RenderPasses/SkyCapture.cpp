@@ -1,6 +1,25 @@
 #include "../Renderer.h"
 
-void Renderer::SkyCapture()
+void Renderer::SkyCaptureInit()
+{
+    m_SkyCaptureSize = 128;
+    glGenTextures(1, &m_SkyProbeMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_SkyProbeMap);
+    for (unsigned int i = 0; i < 6; ++i)
+    {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, m_SkyCaptureSize, m_SkyCaptureSize, 0, GL_RGB, GL_FLOAT, nullptr);
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    // Create FBO
+    glGenFramebuffers(1, &m_SkyProbeFBO);
+}
+
+void Renderer::SkyCapturePass()
 {
     glViewport(0, 0, m_SkyCaptureSize, m_SkyCaptureSize);
     glBindFramebuffer(GL_FRAMEBUFFER, m_SkyProbeFBO);

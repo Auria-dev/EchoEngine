@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-Texture::Texture(const std::string& filepath)
+Texture::Texture(const std::string& filepath) : m_Filepath(filepath)
 {
     Load(filepath);
 }
@@ -32,11 +32,13 @@ Texture::Texture(Texture&& other) noexcept
     m_Width = other.m_Width;
     m_Height = other.m_Height;
     m_Channels = other.m_Channels;
+    m_Filepath = std::move(other.m_Filepath);
 
     other.m_LocalBuffer = nullptr;
     other.m_Width = 0;
     other.m_Height = 0;
     other.m_Channels = 0;
+    other.m_Filepath.clear();
 }
 
 Texture& Texture::operator=(Texture&& other) noexcept
@@ -49,11 +51,13 @@ Texture& Texture::operator=(Texture&& other) noexcept
         m_Width = other.m_Width;
         m_Height = other.m_Height;
         m_Channels = other.m_Channels;
+        m_Filepath = std::move(other.m_Filepath);
 
         other.m_LocalBuffer = nullptr;
         other.m_Width = 0;
         other.m_Height = 0;
         other.m_Channels = 0;
+        other.m_Filepath.clear();
     }
 
     return *this;
@@ -86,6 +90,7 @@ Texture::Texture(glm::vec4 color)
 
 void Texture::Load(const std::string& path)
 {
+    m_Filepath = path;
     Free();
     stbi_set_flip_vertically_on_load(1); 
 

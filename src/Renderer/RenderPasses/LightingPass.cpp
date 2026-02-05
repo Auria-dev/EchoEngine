@@ -1,5 +1,36 @@
 #include "../Renderer.h"
 
+void Renderer::LightingInit()
+{
+    glGenFramebuffers(1, &m_LightingFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_LightingFBO);
+
+    glGenTextures(1, &m_LightingResult);
+    glBindTexture(GL_TEXTURE_2D, m_LightingResult);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, m_Width, m_Height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_LightingResult, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        std::cout << "Lighting Framebuffer not complete!" << std::endl;
+    }    
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    m_LightingShader->Bind();
+    m_LightingShader->SetUniform1i("gPosition", 0);
+    m_LightingShader->SetUniform1i("gNormal", 1);
+    m_LightingShader->SetUniform1i("gAlbedo", 2);
+    m_LightingShader->SetUniform1i("gARM", 3);
+    m_LightingShader->SetUniform1i("gSSAO", 4);
+    m_LightingShader->SetUniform1i("uShadowMap", 5);
+    m_LightingShader->SetUniform1i("uTransmittanceLUT", 6);
+    m_LightingShader->SetUniform1i("uSkyProbe", 7);
+}
+
 void Renderer::LightingPass()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, m_LightingFBO);

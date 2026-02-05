@@ -1,5 +1,53 @@
 #include "../Renderer.h"
 
+void Renderer::AtmosphereInit()
+{   
+    glGenTextures(1, &m_TransmittanceLUT);
+    glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 256, 64, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glGenFramebuffers(1, &m_TransmittanceFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_TransmittanceFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_TransmittanceLUT, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Transmittance Framebuffer not complete!" << std::endl;
+
+    glViewport(0, 0, 256, 64);
+    m_TransmittanceShader->Bind();
+    m_GBuffer.quad.Draw();
+
+    glGenTextures(1, &m_MultiScatteringLUT);
+    glBindTexture(GL_TEXTURE_2D, m_MultiScatteringLUT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 32, 32, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glGenFramebuffers(1, &m_MultiScatteringFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_MultiScatteringFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_MultiScatteringLUT, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Multi Scattering Framebuffer not complete!" << std::endl;
+
+    glViewport(0, 0, 32, 32);
+    m_MultiScatteringShader->Bind();
+    m_GBuffer.quad.Draw();
+
+    m_AtmosphereShader->Bind();
+    m_AtmosphereShader->SetUniform1i("gDepth", 0);
+    m_AtmosphereShader->SetUniform1i("uTransmittanceLUT", 1);
+    m_AtmosphereShader->SetUniform1i("uMultiScatteringLUT", 2);
+    m_AtmosphereShader->SetUniform1i("uShadowMap", 3);
+    m_AtmosphereShader->SetUniform1i("gScene", 4);
+}
+
 void Renderer::AtmospherePass()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

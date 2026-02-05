@@ -34,9 +34,11 @@ public:
     int GetWidth() const { return m_Width; }
     int GetHeight() const { return m_Height; }
     int GetChannels() const { return m_Channels; }
+    const std::string& GetPath() const { return m_Filepath; }
 
 private:
+    std::string m_Filepath;
     uchar* m_LocalBuffer = nullptr;
     int m_Width = 0, m_Height = 0, m_Channels = 0;
-
+    
 };

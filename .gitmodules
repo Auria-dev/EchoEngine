@@ -8,3 +8,6 @@
 	path = vendor/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
+[submodule "vendor/meshoptimizer"]
+	path = vendor/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git

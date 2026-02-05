@@ -455,7 +455,7 @@ LoadResult OBJLoader::Load(const std::string& filepath)
         result.mesh->CalculateSubMeshBoundsAndCenter(sm, *result.mesh);
     }
 
-    result.mesh->RecalculateNormals();
+    // result.mesh->RecalculateNormals();
     result.mesh->RecalculateTangents();
 
     auto end_time = std::chrono::steady_clock::now();

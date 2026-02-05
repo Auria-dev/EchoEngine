@@ -101,20 +101,27 @@ private:
     Shader* m_ShadowMapShader;
     Shader* m_PostProcessShader;
     
-    float m_ShadowCascadeLevelOne, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelThree, m_ShadowCascadeLevelFour;
+    float m_ShadowCascadeLevelOne, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelThree, m_ShadowCascadeLevelFour, m_FarShadowRenderDistance;
     std::vector<float> m_ShadowCascadeLevels;
     std::vector<glm::mat4> m_ShadowCascadeMatrices;
     std::vector<uint> m_ShadowMapDebugTextures;
 
     void GeometryPass();
-    void SkyCapture();
+    void SkyCapturePass();
     void SSAOPass();
     void ShadowMapPass();
     void LightingPass();
     void AtmospherePass();
     void ForwardPass();
 
+    void GeometryInit();
+    void SkyCaptureInit();
+    void SSAOInit();
     void ShadowMapInit();
+    void LightingInit();
+    void AtmosphereInit();
+    void ForwardInit();
+
     std::vector<glm::vec4> GetFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view);
     glm::mat4 GetLightSpaceMatrix(const float nearPlane, const float farPlane);
 

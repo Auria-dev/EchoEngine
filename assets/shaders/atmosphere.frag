@@ -97,7 +97,7 @@ vec3 GetMultiScattering(vec3 pos, float cosSunZenith)
 
 float CalculateShadow(vec3 worldPos)
 {
-    float bias = 0.005; 
+    float baseBias = 0.005; 
     
     for(int i = 0; i < uCascadeCount; ++i)
     {
@@ -109,7 +109,8 @@ float CalculateShadow(vec3 worldPos)
            projCoords.y >= 0.0 && projCoords.y <= 1.0 && 
            projCoords.z >= 0.0 && projCoords.z <= 1.0)
         {
-            vec4 uv = vec4(projCoords.xy, i, projCoords.z - bias);
+            float currentBias = baseBias * (1.0 + float(i));            
+            vec4 uv = vec4(projCoords.xy, i, projCoords.z - currentBias);
             return texture(uShadowMap, uv);
         }
     }
