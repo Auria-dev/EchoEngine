@@ -76,7 +76,6 @@ private:
     uint m_SSAOFBO, m_SSAOBlurFBO, m_SSAONoise;
     uint m_SSAOColorBuffer, m_SSAOBlurBuffer;
     uint m_ShadowMapFBO, m_ShadowMapTexture, m_ShadowMapResolution, m_ShadowMapSplit;
-    // uint m_SkyboxTexture, m_IrradianceMap, m_EnvCubemap, m_SkyboxVAO, m_SkyboxVBO, m_CubeVAO, m_CubeVBO, m_CaptureFBO, m_CaptureRBO, m_PrefilterMap, m_BRDFLUTTexture;
     uint m_Width, m_Height;
     uint m_TransmittanceLUT, m_TransmittanceFBO;
     uint m_MultiScatteringLUT, m_MultiScatteringFBO;

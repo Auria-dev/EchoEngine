@@ -76,10 +76,10 @@ const float RTop    = 6460.0;
 
 vec3 GetTransmittance(vec3 worldPos, vec3 lightDir)
 {
-    vec3 planetCenter = vec3(0.0, -RGround, 0.0);
-    float altitude = length(worldPos - planetCenter) - RGround;
-    float v = clamp(altitude / (RTop - RGround), 0.0, 1.0);
-    float cosTheta = dot(normalize(worldPos - planetCenter), lightDir);
+    float worldMetersToKM = 0.001;
+    float altitudeKM = worldPos.y * worldMetersToKM;
+    float v = clamp(altitudeKM / (RTop - RGround), 0.0, 1.0);
+    float cosTheta = dot(vec3(0.0, 1.0, 0.0), lightDir);
     float u = clamp((cosTheta + 1.0) / 2.0, 0.0, 1.0);
     return texture(uTransmittanceLUT, vec2(u, v)).rgb;
 }
@@ -150,7 +150,7 @@ float SampleShadowMap(int layer, vec3 fragPosWorld, vec3 normal, vec3 lightDir)
     if (projCoords.z > 1.0) return 0.0;
 
     float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0005);
-    if (layer == uCascadeCount - 1) bias *= 0.5;
+    // if (layer == uCascadeCount - 1) bias *= 0.5;
     
     float currentDepth = projCoords.z;
     

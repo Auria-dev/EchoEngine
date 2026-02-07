@@ -37,9 +37,9 @@ void Renderer::Init(int width, int height)
     m_SSAOBlurShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/ssaoblur.frag");
     m_SkyboxShader = new Shader("assets/shaders/skybox.vert", "assets/shaders/skybox.frag");
 
-    m_EquirectangularToCubemapShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/equirectangular_to_cubemap.frag");
-    m_IrradianceShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/irradiance_convolution.frag");
-    m_PrefilterShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/prefilter.frag");
+    // m_EquirectangularToCubemapShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/equirectangular_to_cubemap.frag");
+    // m_IrradianceShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/irradiance_convolution.frag");
+    // m_PrefilterShader = new Shader("assets/shaders/cubemap.vert", "assets/shaders/prefilter.frag");
     m_BrdfShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/brdf.frag");
     
     // m_AtmosphereShader = new Shader("assets/shaders/fullscreen.vert", "assets/shaders/volumetric.frag");
@@ -235,9 +235,9 @@ void Renderer::ReloadShaders()
     m_SSAOShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/ssao.frag");
     m_SSAOBlurShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/ssaoblur.frag");
     m_SkyboxShader->Reload("assets/shaders/skybox.vert", "assets/shaders/skybox.frag");
-    m_EquirectangularToCubemapShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/equirectangular_to_cubemap.frag");
-    m_IrradianceShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/irradiance_convolution.frag");
-    m_PrefilterShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/prefilter.frag");
+    // m_EquirectangularToCubemapShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/equirectangular_to_cubemap.frag");
+    // m_IrradianceShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/irradiance_convolution.frag");
+    // m_PrefilterShader->Reload("assets/shaders/cubemap.vert", "assets/shaders/prefilter.frag");
     m_BrdfShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/brdf.frag");
     // m_AtmosphereShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/volumetric.frag");
     m_AtmosphereShader->Reload("assets/shaders/fullscreen.vert", "assets/shaders/atmosphere.frag");

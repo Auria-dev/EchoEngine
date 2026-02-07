@@ -39,7 +39,8 @@ void Renderer::SkyCapturePass()
     m_AtmosphereShader->SetUniform3f("uLightDir", -m_Scene->m_Sun.Direction.x, -m_Scene->m_Sun.Direction.y, -m_Scene->m_Sun.Direction.z);
     m_AtmosphereShader->SetUniform1i("uIsIBLPass", 1);
 
-    glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);    glm::mat4 captureViews[] = {
+    glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+    glm::mat4 captureViews[] = {
         glm::lookAt(glm::vec3(0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
         glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
         glm::lookAt(glm::vec3(0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),

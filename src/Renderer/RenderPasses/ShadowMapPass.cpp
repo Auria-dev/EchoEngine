@@ -88,7 +88,7 @@ void Renderer::ShadowMapInit()
     m_ShadowCascadeLevelFour  = 4000.0f;
     m_FarShadowRenderDistance = 8000.0f;
 
-    m_ShadowMapSplit = 5;
+    m_ShadowMapSplit = 4;
     m_ShadowMapResolution = 2048;
     glGenFramebuffers(1, &m_ShadowMapFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, m_ShadowMapFBO);
@@ -130,7 +130,7 @@ void Renderer::ShadowMapInit()
 
 void Renderer::ShadowMapPass()
 {
-    m_ShadowCascadeLevels = { m_Scene->activeCamera->GetNear(), m_ShadowCascadeLevelOne, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelThree, m_ShadowCascadeLevelFour, m_Scene->activeCamera->GetFar() };
+    m_ShadowCascadeLevels = { m_Scene->activeCamera->GetNear(), m_ShadowCascadeLevelOne, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelThree, m_Scene->activeCamera->GetFar() };
     m_ShadowCascadeMatrices.clear();
 
     m_ShadowMapShader->Bind();

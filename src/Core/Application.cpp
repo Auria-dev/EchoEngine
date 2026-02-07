@@ -155,7 +155,7 @@ Application::Application()
     style->FrameBorderSize = 0.0f;
     
     InputManager::GetInstance().BindAction("Quit",         InputType::Key, GLFW_KEY_ESCAPE);
-    InputManager::GetInstance().BindAction("ToggleCursor", InputType::Key, GLFW_KEY_ENTER);
+    InputManager::GetInstance().BindAction("ToggleCursor", InputType::Key, GLFW_KEY_LEFT_CONTROL);
     InputManager::GetInstance().BindAction("Fullscreen",   InputType::Key, GLFW_KEY_F11);
 	InputManager::GetInstance().BindAction("MoveForward",  InputType::Key, GLFW_KEY_W);
 	InputManager::GetInstance().BindAction("MoveBackward", InputType::Key, GLFW_KEY_S);
@@ -308,6 +308,10 @@ void Application::Run()
     // BistroInt.LoadFromOBJ("assets/models/heavy/interior.obj");
     // BistroInt.SetScale(glm::vec3(0.01, 0.01, 0.01));
     // m_Scene.m_Entities.push_back(&BistroInt);
+
+    // Entity Sphere;
+    // Sphere.LoadFromOBJ("assets/models/sphere.obj");
+    // m_Scene.m_Entities.push_back(&Sphere);
 
     Camera t = Camera();
     t.SetPosition(glm::vec3(-1370.0, 91.0, 1145.0));

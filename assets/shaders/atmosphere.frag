@@ -167,7 +167,7 @@ void main()
     vec2 t_ground = RaySphereIntersection(camPosKM, rayDir, RGround);
     if (t_ground.x > 0.0) tEnd = min(tEnd, t_ground.x);
 
-    int STEPS = hitsGeometry ? 16 : 32;
+    int STEPS = hitsGeometry ? 8 : 16;
     float dt = (tEnd - tStart) / float(STEPS);
     vec3 currentPos = camPosKM + rayDir * (tStart + dt * 0.5);
     float tCurrent = tStart + (dt*ditherValue);
@@ -244,7 +244,7 @@ void main()
     FragColor = vec4(finalColor, T_view.g);
 
     float sunDot = dot(rayDir, uLightDir);
-    float sunAngularRadius = 0.9999;
+    float sunAngularRadius = 0.99995;
     float sunIntensity = smoothstep(sunAngularRadius, sunAngularRadius + 0.0001, sunDot);
     
     if (sunIntensity > 0.0 && !hitsGeometry && t_ground.x < 0.0 && !uIsIBLPass)
