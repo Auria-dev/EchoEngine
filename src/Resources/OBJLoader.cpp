@@ -141,6 +141,7 @@ void OBJLoader::ParseMTL(const std::string& filepath, std::vector<std::shared_pt
             activeMat = materials[matMap[name]];
             activeMat->SetNormal(Texture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f)));
             activeMat->SetRough(Texture(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)));
+            activeMat->SetMetal(Texture(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)));
             activeMat->Dissolve = 1.0;
             activeMat->Translucent = false;
         }
@@ -154,6 +155,7 @@ void OBJLoader::ParseMTL(const std::string& filepath, std::vector<std::shared_pt
         {
             p += 2;
             float metallic = ParseFloat(p, end);
+            activeMat->SetMetal(Texture(glm::vec4(metallic, metallic, metallic, 1.0f)));
         }
         else if (activeMat) {
             if (strncmp(p, "map_Kd", 6) == 0)
@@ -174,6 +176,13 @@ void OBJLoader::ParseMTL(const std::string& filepath, std::vector<std::shared_pt
                 std::string path = ParseTexturePath(p, end, baseDir);
                 if (!path.empty()) activeMat->SetRough(Texture(path));
             }
+            else if (strncmp(p, "map_Pm", 6) == 0)
+            {
+                p += 6;
+                std::string path = ParseTexturePath(p, end, baseDir);
+                if (!path.empty()) activeMat->SetMetal(Texture(path));
+            }
+
             else if (strncmp(p, "Kd", 2) == 0)
             {
                 p += 2;

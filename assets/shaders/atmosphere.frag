@@ -19,6 +19,7 @@ uniform mat4 uInvViewProj;
 uniform mat4 uLightProj;
 
 uniform bool uIsIBLPass;
+uniform float uSceneAltitude;
 
 uniform float exposure;
 
@@ -133,9 +134,11 @@ float OzongAltitureDensityDistribution(float h) { return max(0.0, 1.0-(abs(h-25.
 
 void main()
 {
+    vec3 cViewPos = viewPos;
+    cViewPos.y = max (cViewPos.y, 0.01);
     float depthVal = texture(gDepth, TexCoords).r;
     vec3 worldPos = GetWorldPos(depthVal, TexCoords);
-    vec3 rayDir = normalize(worldPos - viewPos);
+    vec3 rayDir = normalize(worldPos - cViewPos);
 
     float ditherValue = IGN(gl_FragCoord.xy);
 
@@ -143,12 +146,12 @@ void main()
         depthVal = 1.0;
         vec4 clip = vec4(TexCoords * 2.0 - 1.0, 1.0, 1.0);
         vec4 view = uInvViewProj * clip;
-        rayDir = normalize(view.xyz / view.w - viewPos);
+        rayDir = normalize(view.xyz / view.w - cViewPos);
     }
     
-    vec3 camPosKM = viewPos * 0.001;
-    camPosKM.y += RGround + 1.6;
-    float sceneDistKM = length(worldPos - viewPos) * 0.001;
+    vec3 camPosKM = cViewPos * 0.001;
+    camPosKM.y += RGround + uSceneAltitude;
+    float sceneDistKM = length(worldPos - cViewPos) * 0.001;
     bool hitsGeometry = !uIsIBLPass && (depthVal < 1.0);
 
     vec2 t_atmo = RaySphereIntersection(camPosKM, rayDir, RTop);
@@ -167,7 +170,7 @@ void main()
     vec2 t_ground = RaySphereIntersection(camPosKM, rayDir, RGround);
     if (t_ground.x > 0.0) tEnd = min(tEnd, t_ground.x);
 
-    int STEPS = hitsGeometry ? 8 : 16;
+    int STEPS = hitsGeometry ? 16 : 32;
     float dt = (tEnd - tStart) / float(STEPS);
     vec3 currentPos = camPosKM + rayDir * (tStart + dt * 0.5);
     float tCurrent = tStart + (dt*ditherValue);
@@ -205,7 +208,7 @@ void main()
         vec3 T_sun = GetTransmittanceFromLUT(currentPos, sunDir);
 
         float distFromCamMeters = (length(currentPos - camPosKM)) * 1000.0;
-        vec3 sampleWorldPos = viewPos + (rayDir * distFromCamMeters);
+        vec3 sampleWorldPos = cViewPos + (rayDir * distFromCamMeters);
         
         float lightVisibility = CalculateShadow(sampleWorldPos);
         if (uIsIBLPass) lightVisibility = 1.0;

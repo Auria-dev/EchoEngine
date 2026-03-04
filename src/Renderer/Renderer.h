@@ -36,6 +36,7 @@ struct DrawCmd
     glm::mat4 Model;
     std::shared_ptr<Material> Material;
     bool shadowCasting;
+    bool Tiling;
     
     float depth;
 
@@ -67,6 +68,11 @@ public:
     SceneData* GetScene(void) { return m_Scene; }
 
     std::unordered_map<std::string, std::chrono::nanoseconds> m_PerformanceTimer;
+
+// temporary
+    float m_ShadowCascadeLevelOne, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelThree, m_ShadowCascadeLevelFour;
+    float m_ShadowBlendDistance;
+
 private:
     SceneData* m_Scene;
     
@@ -100,7 +106,6 @@ private:
     Shader* m_ShadowMapShader;
     Shader* m_PostProcessShader;
     
-    float m_ShadowCascadeLevelOne, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelThree, m_ShadowCascadeLevelFour, m_FarShadowRenderDistance;
     std::vector<float> m_ShadowCascadeLevels;
     std::vector<glm::mat4> m_ShadowCascadeMatrices;
     std::vector<uint> m_ShadowMapDebugTextures;
@@ -125,6 +130,12 @@ private:
     glm::mat4 GetLightSpaceMatrix(const float nearPlane, const float farPlane);
 
     float m_Exposure;
+    
+    bool m_DebugCSM;
+    bool m_DebugAtmosphericShadows;
+    bool m_EnableSSAO;
+    bool m_DebugSSAO;
+    float m_SceneAltitude;
 
     std::vector<glm::vec3> m_SSAOKernel;
 

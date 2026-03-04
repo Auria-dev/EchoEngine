@@ -1,0 +1,5 @@
+# Blender 4.5.3 LTS MTL File: 'None'
+# www.blender.org
+
+newmtl Debug
+map_Kd ../textures/WallDebug.png

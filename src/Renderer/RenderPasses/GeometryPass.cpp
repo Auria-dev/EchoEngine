@@ -83,6 +83,7 @@ void Renderer::GeometryPass()
     for (const DrawCmd& cmd : m_DeferredQueue)
     {
         m_GBufferShader->SetUniformMat4f("uModel", cmd.Model);
+        m_GBufferShader->SetUniform1i("uTiling", cmd.Tiling);
         BindMaterial(cmd.Material);
         cmd.Mesh->Bind();
         cmd.Mesh->DrawSubMesh(cmd.SubMeshIndex);

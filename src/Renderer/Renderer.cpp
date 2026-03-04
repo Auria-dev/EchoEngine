@@ -94,7 +94,7 @@ static void DebugTextureItem(const char* label, uint32_t texID, float width = 12
 
 void Renderer::OnImGuiRender()
 {
-    ImGui::Begin("GPU Texture Debugger");
+    ImGui::Begin("Debugger");
 
     if (ImGui::CollapsingHeader("GBuffers"))
     {
@@ -106,22 +106,26 @@ void Renderer::OnImGuiRender()
         DebugTextureItem("Lighting", m_LightingResult);
     }
     
-    ImGui::NewLine(); 
-
     if (ImGui::CollapsingHeader("Lighting"))
     {
-        DebugTextureItem("SSAO Raw", m_SSAOColorBuffer);
-        DebugTextureItem("SSAO Blur", m_SSAOBlurBuffer);
-        // DebugTextureItem("BRDF LUT", m_BRDFLUTTexture, 128,128);
+        
+        if (ImGui::TreeNode("SSAO"))
+        {
+            ImGui::Checkbox("SSAO", &m_EnableSSAO);
+            DebugTextureItem("SSAO raw buffer ", m_SSAOColorBuffer);
+            DebugTextureItem("SSAO blur buffer", m_SSAOBlurBuffer);
+            ImGui::NewLine();
+            ImGui::Checkbox("Debug SSAO", &m_DebugSSAO);
+            ImGui::TreePop();
+            ImGui::NewLine();
+        }
 
-        ImGui::NewLine();
         if (ImGui::TreeNode("Cascaded Shadow Maps"))
         {
             for (uint i = 0; i < m_ShadowMapDebugTextures.size(); ++i)
             {
                 std::string label = "Cascade " + std::to_string(i);
                 DebugTextureItem(label.c_str(), m_ShadowMapDebugTextures[i], 150, 150);
-                if (i < m_ShadowMapDebugTextures.size() - 1) ImGui::SameLine();
             }
             ImGui::NewLine();
             ImGui::Text("%zu cascades", m_ShadowCascadeLevels.size());
@@ -129,20 +133,25 @@ void Renderer::OnImGuiRender()
             ImGui::DragFloat("Cascade 2 dist", &m_ShadowCascadeLevelTwo, 1.0, m_ShadowCascadeLevelOne, m_ShadowCascadeLevelThree);
             ImGui::DragFloat("Cascade 3 dist", &m_ShadowCascadeLevelThree, 1.0, m_ShadowCascadeLevelTwo, m_ShadowCascadeLevelFour);
             ImGui::DragFloat("Cascade 4 dist", &m_ShadowCascadeLevelFour, 1.0, m_ShadowCascadeLevelThree, m_Scene->activeCamera->GetFar());
-            ImGui::DragFloat("Maximum shadow depth", &m_FarShadowRenderDistance, 1.0, 50.0f, m_Scene->activeCamera->GetFar());
-
+            ImGui::DragFloat("Cascade blending", &m_ShadowBlendDistance, 0.1, 0.0, 50.0);
+            ImGui::Checkbox("CSM Debugging", &m_DebugCSM);
             ImGui::TreePop();
+            ImGui::NewLine();
         }
 
-        ImGui::NewLine();
-        DebugTextureItem("Transmittance LUT", m_TransmittanceLUT, 256, 64);
-        ImGui::NewLine();
+        if (ImGui::TreeNode("Atmosphere"))
+        {
+            DebugTextureItem("Transmittance LUT", m_TransmittanceLUT, 256, 64);
+            ImGui::Checkbox("Atmospheric Shadows debugging", &m_DebugAtmosphericShadows);
+            ImGui::SliderFloat("Altitude", &m_SceneAltitude, 0.1, 75.0);
+            ImGui::TreePop();
+            ImGui::NewLine();
+        }
+        
         ImGui::DragFloat("Exposure", &m_Exposure, 0.05, 0.0, 3.0);
     }
 
-    ImGui::NewLine();
-
-    if (ImGui::CollapsingHeader("Material Cache (Uploaded)"))
+    if (ImGui::CollapsingHeader("Material Cache"))
     {
         int count = 0;
         for (const auto& [cpuTex, gpuTex] : m_TextureCache)
@@ -159,8 +168,6 @@ void Renderer::OnImGuiRender()
         }
     }
     
-    ImGui::NewLine();
-
     std::string DrawCmdCount = "Opaque: " + std::to_string(m_DeferredQueue.size()) + " Transparent: " + std::to_string(m_ForwardQueue.size());
     ImGui::Text("%s",DrawCmdCount.c_str());
 
@@ -251,7 +258,7 @@ void Renderer::SubmitDrawCmd(const Entity& entity, Shader& shader)
 
     shader.Bind();
     shader.SetUniformMat4f("uModel", entity.transform);
-
+    
     if (m_MeshCache.find(entity.meshAsset.get()) == m_MeshCache.end())
     {
         m_MeshCache[entity.meshAsset.get()] = std::make_unique<MeshResource>(*entity.meshAsset);
@@ -275,6 +282,7 @@ void Renderer::SubmitDrawCmd(const Entity& entity, Shader& shader)
             item.Material = entity.materials[subMesh.MaterialIndex];
             item.Model = entity.transform;
             item.SubMeshIndex = i;
+            item.Tiling = entity.Tiling;
             
             glm::vec4 worldCenter = item.Model * glm::vec4(subMesh.LocalCenter, 1.0f);
             glm::vec4 viewCenter  = m_Scene->activeCamera->GetViewMatrix() * worldCenter;

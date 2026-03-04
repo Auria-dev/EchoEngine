@@ -4,6 +4,9 @@
 
 void Renderer::SSAOInit()
 {
+    m_EnableSSAO = true;
+    m_DebugSSAO = false;
+    
     // SSAO 
     glGenFramebuffers(1, &m_SSAOFBO);
     glGenFramebuffers(1, &m_SSAOBlurFBO);
@@ -88,6 +91,7 @@ void Renderer::SSAOPass()
     m_SSAOShader->Bind();
     m_SSAOShader->SetUniformMat4f("uProjection", m_Scene->activeCamera->GetProjectionMatrix());
     m_SSAOShader->SetUniform2f("uResolution", m_Width, m_Height);
+    
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Position);
     glActiveTexture(GL_TEXTURE1);

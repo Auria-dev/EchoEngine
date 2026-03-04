@@ -13,10 +13,16 @@ uniform sampler2D gSSAO;
 // uniform samplerCube prefilterMap;
 // uniform sampler2D brdfLUT;
 
+uniform bool uDebugCSM;
+uniform bool uDebugSSAO;
+uniform bool uEnableSSAO;
+uniform bool uDebugAtmosphericShadows;
+
 uniform sampler2DArrayShadow uShadowMap;
 uniform int uCascadeCount;
 uniform float uCascadePlaneDistances[16];
 uniform mat4 uCascadeMatrices[16];
+uniform float uShadowBlendDistance;
 
 // uniform sampler2D uPrefilteredMap;
 uniform sampler2D uTransmittanceLUT;
@@ -143,22 +149,27 @@ vec3 CalculatePBRLighting(vec3 L, vec3 V, vec3 N, vec3 radiance, vec3 albedo, fl
 
 float SampleShadowMap(int layer, vec3 fragPosWorld, vec3 normal, vec3 lightDir)
 {
-    vec4 fragPosLightSpace = uCascadeMatrices[layer] * vec4(fragPosWorld, 1.0);
+    float NdotL = max(dot(normal, lightDir), 0.0);
+    float cascadeScale = 1.0 / uCascadeMatrices[layer][0][0];
+    float normalOffsetScale = 0.0;
+    float normalOffset = cascadeScale * normalOffsetScale * (1.0 - NdotL);
+    vec3 offsetWorldPos = fragPosWorld + (normal * normalOffset);
+
+    vec4 fragPosLightSpace = uCascadeMatrices[layer] * vec4(offsetWorldPos, 1.0);
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
 
     if (projCoords.z > 1.0) return 0.0;
 
-    float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0005);
-    // if (layer == uCascadeCount - 1) bias *= 0.5;
-    
+    float bias = max(0.004 * (1.0 - dot(normal, lightDir)), 0.0004);
+    // float bias = 0.0;
     float currentDepth = projCoords.z;
     
     float shadow = 0.0;    
     vec2 texSize = textureSize(uShadowMap, 0).xy;
     vec2 texelSize = 1.0 / texSize;
     
-    int sampleRadius = 1; 
+    int sampleRadius = 2; 
     for(int y = -sampleRadius; y <= sampleRadius; y++)
     {
         for(int x = -sampleRadius; x <= sampleRadius; x++)
@@ -190,19 +201,28 @@ float ShadowCalculation(vec3 fragPosWorld, vec3 normal, vec3 lightDir)
     if (layer == -1) layer = uCascadeCount - 1;
 
     float shadow = SampleShadowMap(layer, fragPosWorld, normal, lightDir);
-    float blendDistance = 20.0; 
     
     float nextSplitDistance = uCascadePlaneDistances[layer];
     float distToNextSplit = nextSplitDistance - depthValue;
 
-    if (distToNextSplit < blendDistance && layer < uCascadeCount - 1)
+    if (distToNextSplit < uShadowBlendDistance && layer < uCascadeCount - 1)
     {
-        float blendFactor = (blendDistance - distToNextSplit) / blendDistance;
+        float blendFactor = (uShadowBlendDistance - distToNextSplit) / uShadowBlendDistance;
         float nextShadow = SampleShadowMap(layer + 1, fragPosWorld, normal, lightDir);
         shadow = mix(shadow, nextShadow, blendFactor);
     }
 
     return shadow;
+}
+
+vec3 ApproxEnvBRDF(vec3 F0, float roughness, float NoV)
+{
+    vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+    vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+    vec4 r = roughness * c0 + c1;
+    float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+    vec2 AB = vec2(-1.04, 1.04) * a004 + r.zw;
+    return F0 * AB.x + AB.y;
 }
 
 void main()
@@ -212,6 +232,19 @@ void main()
     vec3 albedo      = pow(texture(gAlbedo, TexCoords).rgb, vec3(2.2));
     vec3 ARM         = texture(gARM, TexCoords).rgb;
     float SSAO       = texture(gSSAO, TexCoords).r;
+
+    if (uDebugSSAO)
+    {
+        FragColor = vec4(SSAO,SSAO,SSAO,1.0);
+        return;
+    }
+
+    if (uDebugAtmosphericShadows)
+    {
+        albedo = vec3(0.0);
+        ARM = vec3(0.0);
+        SSAO = 0.0;
+    }
 
     float roughness = ARM.g;
     float metallic  = ARM.b;
@@ -260,16 +293,23 @@ void main()
         vec3 radiance = uSpotLights[i].color * uSpotLights[i].intensity * attenuation * intensity;
         Lo += CalculatePBRLighting(L, V, N, radiance, albedo, roughness, metallic, F0);
     }
-
+    
     vec3 kS = F_SchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - metallic;
-    
-    vec3 worldNormal = normalize(vec3(uInverseView * vec4(N, 0.0)));
-    vec3 irradiance = textureLod(uSkyProbe, N, 5.0).rgb;
-    vec3 diffuse = irradiance * albedo;
 
-    vec3 ambient = (kD * diffuse) * ao * SSAO * mix(0.7, 1.0, (1.0-shadow));
+    vec3 irradiance = textureLod(uSkyProbe, N, 5.5).rgb;
+    vec3 diffuse    = irradiance * albedo;
+
+    vec3 R = reflect(-V, N);
+    float MAX_REFLECTION_LOD = 6.0;
+    vec3 prefilteredColor = textureLod(uSkyProbe, R, roughness * MAX_REFLECTION_LOD).rgb;
+    float NoV = max(dot(N, V), 0.0);
+    vec3 envBRDF = ApproxEnvBRDF(F0, roughness, NoV);
+    vec3 specular = prefilteredColor * envBRDF;
+
+    vec3 ambient = (kD * diffuse + specular) * ao;
+    if (uEnableSSAO) ambient *= SSAO;
     vec3 color = ambient + Lo;
 
     FragColor = vec4(color, 1.0);
@@ -279,37 +319,39 @@ void main()
     // FragColor = vec4(envColor, 1.0);
 
     // CSM debugging    
-    // vec4 fragPosViewDebug = uView * vec4(worldPos, 1.0);
-    // float depthValueDebug = abs(fragPosViewDebug.z);
+    if (uDebugCSM)
+    {
+        vec4 fragPosViewDebug = uView * vec4(worldPos, 1.0);
+        float depthValueDebug = abs(fragPosViewDebug.z);
 
-    // int debugLayer = -1;
-    // for (int i = 0; i < uCascadeCount; ++i)
-    // {
-    //     if (depthValueDebug < uCascadePlaneDistances[i])
-    //     {
-    //         debugLayer = i;
-    //         break;
-    //     }
-    // }
-    // if (debugLayer == -1) debugLayer = uCascadeCount - 1;
+        int debugLayer = -1;
+        for (int i = 0; i < uCascadeCount; ++i)
+        {
+            if (depthValueDebug < uCascadePlaneDistances[i])
+            {
+                debugLayer = i;
+                break;
+            }
+        }
+        if (debugLayer == -1) debugLayer = uCascadeCount - 1;
 
-    // vec3 colors[5];
-    // colors[0] = vec3(1.0, 0.2, 0.2); // Red
-    // colors[1] = vec3(0.2, 1.0, 0.2); // Green
-    // colors[2] = vec3(0.2, 0.2, 1.0); // Blue
-    // colors[3] = vec3(1.0, 1.0, 0.2); // Yellow
-    // colors[4] = vec3(0.2, 1.0, 1.0); // Cyan
-    
-    // vec3 debugColor = colors[debugLayer];
-    // float debugBlendDist = 20.0; 
-    // float distToNextSplit = uCascadePlaneDistances[debugLayer] - depthValueDebug;
+        vec3 colors[5];
+        colors[0] = vec3(1.0, 0.2, 0.2); // Red
+        colors[1] = vec3(0.2, 1.0, 0.2); // Green
+        colors[2] = vec3(0.2, 0.2, 1.0); // Blue
+        colors[3] = vec3(1.0, 1.0, 0.2); // Yellow
+        colors[4] = vec3(0.2, 1.0, 1.0); // Cyan
+        
+        vec3 debugColor = colors[debugLayer];
+        float distToNextSplit = uCascadePlaneDistances[debugLayer] - depthValueDebug;
 
-    // if (distToNextSplit < debugBlendDist && debugLayer < uCascadeCount - 1)
-    // {
-    //     float blendFactor = (debugBlendDist - distToNextSplit) / debugBlendDist;
-    //     debugColor = mix(colors[debugLayer], colors[debugLayer + 1], blendFactor);
-    // }
+        if (distToNextSplit < uShadowBlendDistance && debugLayer < uCascadeCount - 1)
+        {
+            float blendFactor = (uShadowBlendDistance - distToNextSplit) / uShadowBlendDistance;
+            debugColor = mix(colors[debugLayer], colors[debugLayer + 1], blendFactor);
+        }
 
 
-    // if (TexCoords.x < 0.5) FragColor = vec4(debugColor * (1.0 - (shadow * 0.5)), 1.0); 
+        FragColor = vec4(debugColor * (1.0 - (shadow * 0.5)), 1.0); 
+    }
 }

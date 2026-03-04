@@ -2,6 +2,8 @@
 
 void Renderer::AtmosphereInit()
 {   
+    m_DebugAtmosphericShadows = false;
+    m_SceneAltitude = 1.6;
     glGenTextures(1, &m_TransmittanceLUT);
     glBindTexture(GL_TEXTURE_2D, m_TransmittanceLUT);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 256, 64, 0, GL_RGB, GL_FLOAT, NULL);
@@ -73,6 +75,8 @@ void Renderer::AtmospherePass()
     }
 
     m_AtmosphereShader->SetUniform1i("uIsIBLPass", 0);
+    m_AtmosphereShader->SetUniform1f("uSceneAltitude", m_SceneAltitude);
+
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Depth);

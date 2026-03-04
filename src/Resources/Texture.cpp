@@ -90,6 +90,7 @@ Texture::Texture(glm::vec4 color)
 
 void Texture::Load(const std::string& path)
 {
+    std::cout << "Loading texture " << path << std::endl;
     m_Filepath = path;
     Free();
     stbi_set_flip_vertically_on_load(1); 

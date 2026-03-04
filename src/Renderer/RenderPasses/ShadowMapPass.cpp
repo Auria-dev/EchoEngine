@@ -67,7 +67,7 @@ glm::mat4 Renderer::GetLightSpaceMatrix(const float nearPlane, const float farPl
     glm::mat4 lightProjection = glm::ortho(
         -radius, radius,
         -radius, radius,
-        -m_FarShadowRenderDistance,
+        -radius, 
         radius
     );
 
@@ -82,14 +82,19 @@ glm::mat4 Renderer::GetLightSpaceMatrix(const float nearPlane, const float farPl
 
 void Renderer::ShadowMapInit()
 {
-    m_ShadowCascadeLevelOne   = 100.0f;
-    m_ShadowCascadeLevelTwo   = 1000.0f;
-    m_ShadowCascadeLevelThree = 2000.0f;
+    m_DebugCSM = false;
+    m_ShadowCascadeLevelOne   = 30.0f;
+    m_ShadowCascadeLevelTwo   = 800.0f;
+    m_ShadowCascadeLevelThree = 1700.0f;
     m_ShadowCascadeLevelFour  = 4000.0f;
-    m_FarShadowRenderDistance = 8000.0f;
+    m_ShadowBlendDistance = 20.0f;
+    // m_ShadowCascadeLevelOne   = 3.0f;
+    // m_ShadowCascadeLevelTwo   = 30.0f;
+    // m_ShadowCascadeLevelThree = 300.0f;
+    // m_ShadowCascadeLevelFour  = 3000.0f;
 
     m_ShadowMapSplit = 4;
-    m_ShadowMapResolution = 2048;
+    m_ShadowMapResolution = 4096;
     glGenFramebuffers(1, &m_ShadowMapFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, m_ShadowMapFBO);
     
@@ -105,7 +110,7 @@ void Renderer::ShadowMapInit()
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_ShadowMapTexture, 0);
+    // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_ShadowMapTexture, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     
@@ -135,7 +140,10 @@ void Renderer::ShadowMapPass()
 
     m_ShadowMapShader->Bind();
     glEnable(GL_DEPTH_TEST);
+    // glCullFace(GL_FRONT);
+    // glEnable(GL_CULL_FACE);
     glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_CLAMP);
     
     glBindFramebuffer(GL_FRAMEBUFFER, m_ShadowMapFBO);
     glViewport(0, 0, m_ShadowMapResolution, m_ShadowMapResolution);
@@ -172,4 +180,7 @@ void Renderer::ShadowMapPass()
             m_ShadowMapResolution, m_ShadowMapResolution, 1
         );
     }
+
+    // glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_CLAMP);
 }

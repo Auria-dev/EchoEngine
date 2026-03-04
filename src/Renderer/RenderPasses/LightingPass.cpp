@@ -122,6 +122,13 @@ void Renderer::LightingPass()
     m_LightingShader->SetUniform3f("uSunDirection", m_Scene->m_Sun.Direction.x, m_Scene->m_Sun.Direction.y, m_Scene->m_Sun.Direction.z);
     m_LightingShader->SetUniform3f("uSunColor",     m_Scene->m_Sun.Color.x, m_Scene->m_Sun.Color.y, m_Scene->m_Sun.Color.z);
     m_LightingShader->SetUniform1f("uSunIntensity", m_Scene->m_Sun.Intensity);
+    
+    m_LightingShader->SetUniform1i("uEnableSSAO", m_EnableSSAO);
+
+    m_LightingShader->SetUniform1i("uDebugCSM", m_DebugCSM);
+    m_LightingShader->SetUniform1i("uDebugAtmosphericShadows", m_DebugAtmosphericShadows);
+    m_LightingShader->SetUniform1i("uDebugSSAO", m_DebugSSAO);
+    m_LightingShader->SetUniform1f("uShadowBlendDistance", m_ShadowBlendDistance);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_GBuffer.Position);

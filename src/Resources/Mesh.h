@@ -26,7 +26,7 @@ struct SubMesh
     uint MaterialIndex = 0;
 
 	std::string NodeName; 
-    
+
     float LocalRadius;
     glm::vec3 LocalCenter;
 };

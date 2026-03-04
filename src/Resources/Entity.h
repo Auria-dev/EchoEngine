@@ -23,6 +23,8 @@ public:
 	glm::vec3 rotation = glm::vec3(0.0f);
 	glm::vec3 scale = glm::vec3(1.0f);
 
+	bool Tiling = false;
+
 	void SetPosition(const glm::vec3& pos);
 	void SetRotation(const glm::vec3& rot);
 	void SetScale(const glm::vec3& scl);
